@@ -3,7 +3,7 @@ import useSWR, { SWRConfiguration } from 'swr';
 
 // 创建axios实例
 const api = axios.create({
-    baseURL: '/api/v1',
+    baseURL: 'http://localhost:8080/springbootvtgh9/api/v1',
     timeout: 10000,
     headers: {
         'Content-Type': 'application/json',

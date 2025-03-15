@@ -5,14 +5,14 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/app/_components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/_components/ui/card';
-import axios from 'axios';
+import apiClient from "@/app/_lib/api-client";
 
 export default function LoginPage() {
     const router = useRouter();
     const [formData, setFormData] = useState({
         username: '',
         password: '',
-        userType: 'yonghu' // 默认为普通用户
+        userType: 'user' // 默认为普通用户
     });
     const [loading, setLoading] = useState(false);
 
@@ -26,16 +26,9 @@ export default function LoginPage() {
         setLoading(true);
 
         try {
-            // 根据用户类型选择不同的登录API
-            const endpoint = formData.userType === 'admin'
-                ? '/api/v1/users/auth/login'
-                : '/api/v1/yonghu/auth/login';
-
-            const response = await axios.post(endpoint, null, {
-                params: {
-                    username: formData.username,
-                    password: formData.password
-                }
+            const response = await apiClient.post("/user/auth/login", {
+                username: formData.username,
+                password: formData.password
             });
 
             if (response.data.code === 0) {
@@ -45,7 +38,7 @@ export default function LoginPage() {
 
                 toast.success('登录成功', {
                     description: '欢迎回来！',
-
+                    position: 'top-center'
                 });
 
                 // 根据用户类型跳转到不同的页面
@@ -94,7 +87,7 @@ export default function LoginPage() {
                                 onChange={handleChange}
                                 className="w-full p-2 border rounded-md focus:ring-2 focus:ring-primary"
                             >
-                                <option value="yonghu">学生</option>
+                                <option value="user">学生</option>
                                 <option value="admin">管理员</option>
                             </select>
                         </div>
