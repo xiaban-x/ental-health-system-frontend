@@ -15,7 +15,7 @@ interface StudentInfo {
     role: string;
     email: string;
     phone: string;
-    createTime: string;
+    createdAt: string;
 }
 
 export default function StudentDashboard() {
@@ -24,7 +24,6 @@ export default function StudentDashboard() {
 
     // 使用SWR获取学生信息
     const { data, error, isLoading } = useApi<StudentInfo>('/user/info');
-
     useEffect(() => {
         // 检查用户是否已登录
         const token = localStorage.getItem('token');
@@ -66,7 +65,6 @@ export default function StudentDashboard() {
             </div>
         );
     }
-
     return (
         <div className="min-h-screen bg-muted p-6">
             <div className="max-w-7xl mx-auto space-y-6">
@@ -104,7 +102,7 @@ export default function StudentDashboard() {
                             </div>
                             <div>
                                 <p className="text-sm font-medium">注册时间</p>
-                                <p>{new Date(studentInfo.createTime).toLocaleDateString('zh-CN')}</p>
+                                <p>{studentInfo.createdAt}</p>
                             </div>
                         </CardContent>
                     </Card>
