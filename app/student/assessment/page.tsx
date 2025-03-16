@@ -260,6 +260,8 @@ export default function StudentAssessment() {
     if (selectedAssessment && questions.length > 0) {
         const currentQuestion = questions[currentQuestionIndex];
         const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+        // 解析选项 JSON 字符串
+        const parsedOptions = JSON.parse(currentQuestion.options);
 
         return (
             <div className="min-h-screen bg-muted p-6">
@@ -284,16 +286,20 @@ export default function StudentAssessment() {
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-6">
-                            <h3 className="text-xl font-medium">{currentQuestion.content}</h3>
+                            <h3 className="text-xl font-medium">{currentQuestion.questionName}</h3>
 
                             <div className="space-y-3">
-                                {currentQuestion.options.map(option => (
+                                {parsedOptions.map((option: { label: string; value: string; text: string }) => (
                                     <div
-                                        key={option.id}
-                                        onClick={() => handleAnswer(currentQuestion.id, option.id)}
-                                        className={`p-3 border rounded-lg cursor-pointer transition-colors ${answers[currentQuestion.id] === option.id ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+                                        key={option.value}
+                                        onClick={() => handleAnswer(currentQuestion.id, parseInt(option.value))}
+                                        className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                                            answers[currentQuestion.id] === parseInt(option.value) 
+                                                ? 'bg-primary text-primary-foreground' 
+                                                : 'hover:bg-muted'
+                                        }`}
                                     >
-                                        {option.content}
+                                        {option.label}. {option.text}
                                     </div>
                                 ))}
                             </div>
@@ -375,7 +381,7 @@ export default function StudentAssessment() {
                                             <PaginationItem>
                                                 <PaginationPrevious
                                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                                    disabled={currentPage === 1}
+                                                // disabled={currentPage === 1}
                                                 />
                                             </PaginationItem>
 
@@ -393,7 +399,7 @@ export default function StudentAssessment() {
                                             <PaginationItem>
                                                 <PaginationNext
                                                     onClick={() => setCurrentPage(prev => Math.min(paginatedData.totalPage, prev + 1))}
-                                                    disabled={currentPage === paginatedData.totalPage}
+                                                // disabled={currentPage === paginatedData.totalPage}
                                                 />
                                             </PaginationItem>
                                         </PaginationContent>
