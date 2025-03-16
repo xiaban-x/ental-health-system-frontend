@@ -63,7 +63,7 @@ interface AssessmentResult {
     score: number;
     level: string;
     suggestion: string;
-    createTime: string;
+    createdAt: string;
 }
 
 // 导入分页组件
@@ -93,10 +93,10 @@ export default function StudentAssessment() {
     const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null);
     const [questions, setQuestions] = useState<Question[]>([]);
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-    const [answers, setAnswers] = useState<{ [key: number]: number }>({});
+    const [answers, setAnswers] = useState<{ [key: number]: number | string }>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [assessmentCompleted, setAssessmentCompleted] = useState(false);
-    const [result, setResult] = useState<AssessmentResult | null>(null);
+    const [result, setResult] = useState<AssessmentResult[] | null>(null);
 
     // 使用SWR获取评估列表
     // const { data: assessments, error, isLoading } = useApi<Assessment[]>('/assessment/list');
@@ -136,8 +136,8 @@ export default function StudentAssessment() {
         }
     };
 
-    const handleAnswer = (questionId: number, optionId: number) => {
-        setAnswers(prev => ({ ...prev, [questionId]: optionId }));
+    const handleAnswer = (questionId: number, optionValue: string) => {
+        setAnswers(prev => ({ ...prev, [questionId]: optionValue }));
 
         // 如果不是最后一个问题，自动前进到下一题
         if (currentQuestionIndex < questions.length - 1) {
@@ -166,16 +166,16 @@ export default function StudentAssessment() {
 
         try {
             const response = await apiClient.post(`/assessment/${selectedAssessment?.id}/submit`, {
-                answers: Object.entries(answers).map(([questionId, optionId]) => ({
+                answers: Object.entries(answers).map(([questionId, optionValue]) => ({
                     questionId: parseInt(questionId),
-                    optionId
+                    optionValue
                 }))
             });
 
             if (response.code === 0) {
                 setAssessmentCompleted(true);
-                setResult(response.data as AssessmentResult);
-                toast.error('提交问题失败', {
+                setResult(response.data as AssessmentResult[]);
+                toast.success('完成评估', {
                     description: '您的评估结果已生成',
                     position: 'top-center'
                 });
@@ -225,18 +225,18 @@ export default function StudentAssessment() {
                         <CardHeader>
                             <CardTitle className="text-2xl">评估结果</CardTitle>
                             <CardDescription>
-                                {selectedAssessment?.title} - {new Date(result.createTime).toLocaleString('zh-CN')}
+                                {selectedAssessment?.title} - {result[0].createdAt}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
                             <div className="p-4 bg-primary/10 rounded-lg">
-                                <h3 className="text-xl font-semibold mb-2">总分: {result.score}</h3>
-                                <p className="text-lg">评估等级: {result.level}</p>
+                                <h3 className="text-xl font-semibold mb-2">总分: {result[0].score}</h3>
+                                <p className="text-lg">评估等级: {result[0].level}</p>
                             </div>
 
                             <div>
                                 <h3 className="text-lg font-semibold mb-2">专业建议</h3>
-                                <p className="whitespace-pre-line">{result.suggestion}</p>
+                                <p className="whitespace-pre-line">{result[0].suggestion}</p>
                             </div>
 
                             <div className="pt-4 border-t">
@@ -292,12 +292,11 @@ export default function StudentAssessment() {
                                 {parsedOptions.map((option: { label: string; value: string; text: string }) => (
                                     <div
                                         key={option.value}
-                                        onClick={() => handleAnswer(currentQuestion.id, parseInt(option.value))}
-                                        className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                                            answers[currentQuestion.id] === parseInt(option.value) 
-                                                ? 'bg-primary text-primary-foreground' 
-                                                : 'hover:bg-muted'
-                                        }`}
+                                        onClick={() => handleAnswer(currentQuestion.id, option.value)}
+                                        className={`p-3 border rounded-lg cursor-pointer transition-colors ${answers[currentQuestion.id] === option.value
+                                            ? 'bg-primary text-primary-foreground'
+                                            : 'hover:bg-muted'
+                                            }`}
                                     >
                                         {option.label}. {option.text}
                                     </div>
@@ -357,7 +356,7 @@ export default function StudentAssessment() {
                                     </CardHeader>
                                     <CardContent>
                                         <div className="flex justify-between text-sm text-muted-foreground">
-                                            <span>创建时间: {new Date(assessment.createdAt).toLocaleDateString('zh-CN')}</span>
+                                            <span>创建时间: {assessment.createdAt}</span>
                                             <span>状态: {assessment.status === 1 ? '可用' : '不可用'}</span>
                                         </div>
                                     </CardContent>
