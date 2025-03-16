@@ -7,6 +7,9 @@ import { Button } from '@/app/_components/ui/button';
 import { useApi } from '@/app/_lib/api-client';
 import { toast } from 'sonner';
 
+// 导入头像组件
+import { Avatar, AvatarFallback, AvatarImage } from "@/app/_components/ui/avatar";
+
 interface StudentInfo {
     id: number;
     username: string;
@@ -16,6 +19,8 @@ interface StudentInfo {
     email: string;
     phone: string;
     createdAt: string;
+    avatar: string;  // 添加头像字段
+    sex: 'male' | 'female' | 'other';  // 添加性别字段
 }
 
 export default function StudentDashboard() {
@@ -80,17 +85,27 @@ export default function StudentDashboard() {
                             <CardDescription>您的基本信息概览</CardDescription>
                         </CardHeader>
                         <CardContent className="grid md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2 flex items-center space-x-4">
+                                <Avatar className="h-20 w-20">
+                                    <AvatarImage src={studentInfo.avatar} alt={studentInfo.name} />
+                                    <AvatarFallback>{studentInfo.name?.[0]?.toUpperCase() || '?'}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <p className="text-sm font-medium">用户名</p>
+                                    <p>{studentInfo.username}</p>
+                                </div>
+                            </div>
                             <div>
                                 <p className="text-sm font-medium">姓名</p>
                                 <p>{studentInfo.name}</p>
                             </div>
                             <div>
-                                <p className="text-sm font-medium">学号</p>
-                                <p>{studentInfo.studentId}</p>
+                                <p className="text-sm font-medium">性别</p>
+                                <p>{studentInfo.sex === 'male' ? '男' : studentInfo.sex === 'female' ? '女' : '其他'}</p>
                             </div>
                             <div>
-                                <p className="text-sm font-medium">用户名</p>
-                                <p>{studentInfo.username}</p>
+                                <p className="text-sm font-medium">学号</p>
+                                <p>{studentInfo.studentId}</p>
                             </div>
                             <div>
                                 <p className="text-sm font-medium">邮箱</p>
