@@ -8,6 +8,12 @@ import { useApi } from '@/app/_lib/api-client';
 import { apiClient } from '@/app/_lib/api-client';
 import { toast } from 'sonner';
 
+// 导入新的组件
+import { Avatar, AvatarFallback, AvatarImage } from "@/app/_components/ui/avatar";
+import { RadioGroup, RadioGroupItem } from "@/app/_components/ui/radio-group";
+import { Label } from "@/app/_components/ui/label";
+
+// 修改 StudentInfo 接口
 interface StudentInfo {
     id: bigint;
     username: string;
@@ -16,6 +22,8 @@ interface StudentInfo {
     email: string;
     phone: string;
     createdAt: string;
+    avatar: string;
+    sex: 'male' | 'female' | 'other';
 }
 
 export default function StudentProfile() {
@@ -25,7 +33,9 @@ export default function StudentProfile() {
         name: '',
         studentId: '',
         email: '',
-        phone: ''
+        phone: '',
+        avatar: '',
+        sex: 'other'
     });
     const [loading, setLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -49,7 +59,9 @@ export default function StudentProfile() {
                 name: data.name || '',
                 studentId: data.studentId || '',
                 email: data.email || '',
-                phone: data.phone || ''
+                phone: data.phone || '',
+                avatar: data.avatar || '',
+                sex: data.sex || 'other'
             });
         }
     }, [data, router]);
@@ -96,7 +108,9 @@ export default function StudentProfile() {
                 name: data.name,
                 studentId: data.studentId,
                 email: data.email,
-                phone: data.phone
+                phone: data.phone,
+                avatar: data.avatar,
+                sex: data.sex
             });
         }
         setIsEditing(false);
@@ -138,6 +152,56 @@ export default function StudentProfile() {
                     </CardHeader>
                     <form onSubmit={handleSubmit}>
                         <CardContent className="space-y-4">
+                            <div className="flex items-center space-x-4">
+                                <div>
+                                    <label className="text-sm font-medium">头像</label>
+                                    <Avatar className="h-24 w-24">
+                                        <AvatarImage src={formData.avatar} alt={formData.name} />
+                                        <AvatarFallback>{formData.name?.[0]?.toUpperCase() || '?'}</AvatarFallback>
+                                    </Avatar>
+                                </div>
+                                {isEditing && (
+                                    <div className="flex-1">
+                                        <input
+                                            type="text"
+                                            name="avatar"
+                                            value={formData.avatar}
+                                            onChange={handleChange}
+                                            placeholder="请输入头像URL"
+                                            className="w-full p-2 border rounded-md"
+                                        />
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            请输入有效的图片URL地址
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">性别</label>
+                                <RadioGroup
+                                    name="sex"
+                                    value={formData.sex}
+                                    onValueChange={(value) =>
+                                        setFormData(prev => ({ ...prev, sex: value as 'male' | 'female' | 'other' }))
+                                    }
+                                    disabled={!isEditing}
+                                    className="flex space-x-4"
+                                >
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="male" id="male" />
+                                        <Label htmlFor="male">男</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="female" id="female" />
+                                        <Label htmlFor="female">女</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="other" id="other" />
+                                        <Label htmlFor="other">其他</Label>
+                                    </div>
+                                </RadioGroup>
+                            </div>
                             <div className="space-y-2">
                                 <label htmlFor="username" className="text-sm font-medium">
                                     用户名
