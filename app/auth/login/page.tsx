@@ -12,7 +12,7 @@ export default function LoginPage() {
     const [formData, setFormData] = useState({
         username: '',
         password: '',
-        userType: 'user' // 默认为普通用户
+        role: '0'
     });
     const [loading, setLoading] = useState(false);
 
@@ -34,7 +34,7 @@ export default function LoginPage() {
             if (response.data.code === 0) {
                 // 登录成功
                 localStorage.setItem('token', response.data.token);
-                localStorage.setItem('userType', formData.userType);
+                localStorage.setItem('role', formData.role);
 
                 toast.success('登录成功', {
                     description: '欢迎回来！',
@@ -42,7 +42,7 @@ export default function LoginPage() {
                 });
 
                 // 根据用户类型跳转到不同的页面
-                if (formData.userType === 'admin') {
+                if (formData.role === '1') {
                     router.push('/admin/dashboard');
                 } else {
                     router.push('/student/dashboard');
@@ -83,12 +83,12 @@ export default function LoginPage() {
                             <select
                                 id="userType"
                                 name="userType"
-                                value={formData.userType}
+                                value={formData.role}
                                 onChange={handleChange}
                                 className="w-full p-2 border rounded-md focus:ring-2 focus:ring-primary"
                             >
-                                <option value="user">学生</option>
-                                <option value="admin">管理员</option>
+                                <option value="0">学生</option>
+                                <option value="1">管理员</option>
                             </select>
                         </div>
                         <div className="space-y-2">
