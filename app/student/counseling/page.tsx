@@ -36,7 +36,7 @@ interface Appointment {
     status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
     reason: string;
     notes: string;
-    createTime: string;
+    createdAt: string;
 }
 
 export default function StudentCounseling() {
@@ -221,7 +221,7 @@ export default function StudentCounseling() {
                                             </div>
                                             <div className="text-right">
                                                 <p className="font-medium">状态: {renderAppointmentStatus(appointment.status)}</p>
-                                                <p className="text-sm text-muted-foreground">预约于: {formatDate(appointment.createTime)}</p>
+                                                <p className="text-sm text-muted-foreground">预约于: {appointment.createdAt}</p>
                                             </div>
                                         </div>
                                     </CardHeader>
