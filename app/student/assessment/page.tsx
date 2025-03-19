@@ -106,7 +106,7 @@ export default function StudentAssessment() {
         const token = localStorage.getItem('token');
         const role = localStorage.getItem('role');
 
-        if (!token || role !== '0') {
+        if (!token || role !== 'student') {
             router.push('/auth/login');
         }
     }, [router]);
