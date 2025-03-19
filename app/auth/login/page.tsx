@@ -30,11 +30,11 @@ export default function LoginPage() {
                 username: formData.username,
                 password: formData.password
             });
-
+            console.log("response ===>", response)
             if (response.data.code === 0) {
                 // 登录成功
                 localStorage.setItem('token', response.data.token);
-                localStorage.setItem('role', formData.role);
+                localStorage.setItem('role', response.data.user.role);
 
                 toast.success('登录成功', {
                     description: '欢迎回来！',
@@ -42,8 +42,8 @@ export default function LoginPage() {
                 });
 
                 // 根据用户类型跳转到不同的页面
-                if (formData.role === '1') {
-                    router.push('/admin/dashboard');
+                if (response.data.user.role === '1') {
+                    router.push('/teacher/dashboard');
                 } else {
                     router.push('/student/dashboard');
                 }
