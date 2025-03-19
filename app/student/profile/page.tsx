@@ -13,55 +13,84 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/app/_components/ui/avatar
 import { RadioGroup, RadioGroupItem } from "@/app/_components/ui/radio-group";
 import { Label } from "@/app/_components/ui/label";
 
-// 修改 StudentInfo 接口
-interface StudentInfo {
-    id: bigint;
+interface StudentRoleInfo {
+    id: number;
+    userId: number;
+    studentId: string;
+    major: string;
+    className: string;
+    grade: string;
+    enrollmentDate: string | null;
+    graduationDate: string | null;
+    dormitory: string | null;
+    createdAt: string | null;
+    updatedAt: string | null;
+}
+
+interface UserInfo {
+    id: number;
     username: string;
     name: string;
-    studentId: string;
-    email: string;
+    sex: string | null;
     phone: string;
+    email: string;
+    avatar: string | null;
+    role: string;
+    remark: string | null;
     createdAt: string;
-    avatar: string;
-    sex: 'male' | 'female' | 'other';
+    updatedAt: string;
 }
+
+interface StudentInfo {
+    roleInfo: StudentRoleInfo;
+    user: UserInfo;
+}
+
 
 export default function StudentProfile() {
     const router = useRouter();
     // 修改初始状态，确保所有字段都有默认值
-    const [formData, setFormData] = useState<Omit<StudentInfo, 'id' | 'createdAt' | 'username'>>({
+    const [formData, setFormData] = useState({
+        // 用户基本信息
         name: '',
-        studentId: '',
+        sex: 'other' as 'male' | 'female' | 'other',
         email: '',
         phone: '',
         avatar: '',
-        sex: 'other'
+        // 学生特定信息
+        studentId: '',
+        major: '',
+        className: '',
+        grade: '',
     });
     const [loading, setLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
 
     // 使用SWR获取学生信息
-    const { data, error, isLoading, mutate } = useApi<StudentInfo>('/user/info');
+    const { data, error, isLoading, mutate } = useApi<StudentInfo>('/users/profile');
 
     useEffect(() => {
         // 检查用户是否已登录
         const token = localStorage.getItem('token');
         const role = localStorage.getItem('role');
 
-        if (!token || role !== '0') { // 修改判断条件
+        if (!token || role !== 'student') { // 修改判断条件
             router.push('/auth/login');
             return;
         }
 
         // 只在 data 存在且有值时更新表单
-        if (data && data.name) {
+        if (data && data.user) {
             setFormData({
-                name: data.name || '',
-                studentId: data.studentId || '',
-                email: data.email || '',
-                phone: data.phone || '',
-                avatar: data.avatar || '',
-                sex: data.sex || 'other'
+                name: data.user.name || '',
+                sex: (data.user.sex as 'male' | 'female' | 'other') || 'other',
+                email: data.user.email || '',
+                phone: data.user.phone || '',
+                avatar: data.user.avatar || '',
+                studentId: data.roleInfo.studentId || '',
+                major: data.roleInfo.major || '',
+                className: data.roleInfo.className || '',
+                grade: data.roleInfo.grade || '',
             });
         }
     }, [data, router]);
@@ -76,23 +105,42 @@ export default function StudentProfile() {
         setLoading(true);
 
         try {
-            const response = await apiClient.put('/user/profile', formData);
+            // 分离用户基本信息和角色特定信息
+            const userUpdate = {
+                name: formData.name,
+                sex: formData.sex,
+                email: formData.email,
+                phone: formData.phone,
+                avatar: formData.avatar,
+            };
+
+            const roleInfoUpdate = {
+                studentId: formData.studentId,
+                major: formData.major,
+                className: formData.className,
+                grade: formData.grade,
+            };
+
+            const response = await apiClient.put('/user/profile', {
+                user: userUpdate,
+                roleInfo: roleInfoUpdate
+            });
 
             if (response.code === 0) {
                 toast.success('更新成功', {
-                    description: '您的个人信息已更新',
+                    description: '您的个人资料已更新',
                     position: 'top-center',
                 });
                 setIsEditing(false);
                 mutate(); // 刷新数据
             } else {
                 toast.error('更新失败', {
-                    description: response.msg || '无法更新个人信息',
+                    description: response.msg || '无法更新个人资料',
                     position: 'top-center',
                 });
             }
         } catch (error) {
-            console.error('更新错误:', error);
+            console.error('更新个人资料错误:', error);
             toast.error('更新失败', {
                 description: '服务器错误，请稍后再试',
                 position: 'top-center',
@@ -105,17 +153,19 @@ export default function StudentProfile() {
     const handleCancel = () => {
         if (data) {
             setFormData({
-                name: data.name,
-                studentId: data.studentId,
-                email: data.email,
-                phone: data.phone,
-                avatar: data.avatar,
-                sex: data.sex
+                name: data.user.name || '',
+                sex: (data.user.sex as 'male' | 'female' | 'other') || 'other',
+                email: data.user.email || '',
+                phone: data.user.phone || '',
+                avatar: data.user.avatar || '',
+                studentId: data.roleInfo.studentId || '',
+                major: data.roleInfo.major || '',
+                className: data.roleInfo.className || '',
+                grade: data.roleInfo.grade || '',
             });
         }
         setIsEditing(false);
     };
-
     if (isLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
@@ -202,6 +252,7 @@ export default function StudentProfile() {
                                     </div>
                                 </RadioGroup>
                             </div>
+
                             <div className="space-y-2">
                                 <label htmlFor="username" className="text-sm font-medium">
                                     用户名
@@ -209,7 +260,7 @@ export default function StudentProfile() {
                                 <input
                                     id="username"
                                     type="text"
-                                    value={data?.username ?? ''} // 使用空字符串作为后备值
+                                    value={data?.user.username ?? ''} // 修改为正确的数据路径
                                     disabled
                                     className="w-full p-2 border rounded-md bg-muted"
                                 />
@@ -240,6 +291,51 @@ export default function StudentProfile() {
                                     name="studentId"
                                     type="text"
                                     value={formData.studentId}
+                                    onChange={handleChange}
+                                    disabled={!isEditing}
+                                    className={`w-full p-2 border rounded-md ${!isEditing ? 'bg-muted' : ''}`}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label htmlFor="major" className="text-sm font-medium">
+                                    专业
+                                </label>
+                                <input
+                                    id="major"
+                                    name="major"
+                                    type="text"
+                                    value={formData.major}
+                                    onChange={handleChange}
+                                    disabled={!isEditing}
+                                    className={`w-full p-2 border rounded-md ${!isEditing ? 'bg-muted' : ''}`}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label htmlFor="className" className="text-sm font-medium">
+                                    班级
+                                </label>
+                                <input
+                                    id="className"
+                                    name="className"
+                                    type="text"
+                                    value={formData.className}
+                                    onChange={handleChange}
+                                    disabled={!isEditing}
+                                    className={`w-full p-2 border rounded-md ${!isEditing ? 'bg-muted' : ''}`}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label htmlFor="grade" className="text-sm font-medium">
+                                    年级
+                                </label>
+                                <input
+                                    id="grade"
+                                    name="grade"
+                                    type="text"
+                                    value={formData.grade}
                                     onChange={handleChange}
                                     disabled={!isEditing}
                                     className={`w-full p-2 border rounded-md ${!isEditing ? 'bg-muted' : ''}`}
@@ -281,7 +377,7 @@ export default function StudentProfile() {
                                     注册时间
                                 </label>
                                 <p className="p-2">
-                                    {data?.createdAt ? new Date(data.createdAt).toLocaleString('zh-CN') : ''}
+                                    {data?.user.createdAt ? new Date(data.user.createdAt).toLocaleString('zh-CN') : ''}
                                 </p>
                             </div>
                         </CardContent>
