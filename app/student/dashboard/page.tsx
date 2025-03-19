@@ -10,17 +10,38 @@ import { toast } from 'sonner';
 // 导入头像组件
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/_components/ui/avatar";
 
-interface StudentInfo {
+// 更新接口定义以匹配新的后端数据结构
+interface StudentRoleInfo {
+    id: number;
+    userId: number;
+    studentId: string;
+    major: string;
+    className: string;
+    grade: string;
+    enrollmentDate: string | null;
+    graduationDate: string | null;
+    dormitory: string | null;
+    createdAt: string | null;
+    updatedAt: string | null;
+}
+
+interface UserInfo {
     id: number;
     username: string;
     name: string;
-    studentId: string;
-    role: string;
-    email: string;
+    sex: string | null;
     phone: string;
+    email: string;
+    avatar: string | null;
+    role: string;
+    remark: string | null;
     createdAt: string;
-    avatar: string;  // 添加头像字段
-    sex: 'male' | 'female' | 'other';  // 添加性别字段
+    updatedAt: string;
+}
+
+interface StudentInfo {
+    roleInfo: StudentRoleInfo;
+    user: UserInfo;
 }
 
 export default function StudentDashboard() {
@@ -28,17 +49,17 @@ export default function StudentDashboard() {
     const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null);
 
     // 使用SWR获取学生信息
-    const { data, error, isLoading } = useApi<StudentInfo>('/user/info');
+    const { data, error, isLoading } = useApi<StudentInfo>('/users/profile');
     useEffect(() => {
         // 检查用户是否已登录
         const token = localStorage.getItem('token');
         const role = localStorage.getItem('role');
 
-        if (!token || role !== '0') {
+        if (!token || role !== 'student') {
             router.push('/auth/login');
             return;
         }
-
+        console.log("data ===>", data)
         if (data) {
             setStudentInfo(data);
         }
@@ -70,6 +91,7 @@ export default function StudentDashboard() {
             </div>
         );
     }
+    console.log("studentInfo ==>", studentInfo)
     return (
         <div className="min-h-screen bg-muted p-6">
             <div className="max-w-7xl mx-auto space-y-6">
@@ -87,37 +109,49 @@ export default function StudentDashboard() {
                         <CardContent className="grid md:grid-cols-2 gap-4">
                             <div className="md:col-span-2 flex items-center space-x-4">
                                 <Avatar className="h-20 w-20">
-                                    <AvatarImage src={studentInfo.avatar} alt={studentInfo.name} />
-                                    <AvatarFallback>{studentInfo.name?.[0]?.toUpperCase() || '?'}</AvatarFallback>
+                                    <AvatarImage src={studentInfo.user.avatar || ''} alt={studentInfo.user.name} />
+                                    <AvatarFallback>{studentInfo.user.name?.[0]?.toUpperCase() || '?'}</AvatarFallback>
                                 </Avatar>
                                 <div>
                                     <p className="text-sm font-medium">用户名</p>
-                                    <p>{studentInfo.username}</p>
+                                    <p>{studentInfo.user.username}</p>
                                 </div>
                             </div>
                             <div>
                                 <p className="text-sm font-medium">姓名</p>
-                                <p>{studentInfo.name}</p>
+                                <p>{studentInfo.user.name}</p>
                             </div>
                             <div>
                                 <p className="text-sm font-medium">性别</p>
-                                <p>{studentInfo.sex === 'male' ? '男' : studentInfo.sex === 'female' ? '女' : '其他'}</p>
+                                <p>{studentInfo.user.sex === 'male' ? '男' : studentInfo.user.sex === 'female' ? '女' : '未设置'}</p>
                             </div>
                             <div>
                                 <p className="text-sm font-medium">学号</p>
-                                <p>{studentInfo.studentId}</p>
+                                <p>{studentInfo.roleInfo.studentId}</p>
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium">专业</p>
+                                <p>{studentInfo.roleInfo.major || '未设置'}</p>
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium">班级</p>
+                                <p>{studentInfo.roleInfo.className || '未设置'}</p>
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium">年级</p>
+                                <p>{studentInfo.roleInfo.grade || '未设置'}</p>
                             </div>
                             <div>
                                 <p className="text-sm font-medium">邮箱</p>
-                                <p>{studentInfo.email}</p>
+                                <p>{studentInfo.user.email}</p>
                             </div>
                             <div>
                                 <p className="text-sm font-medium">手机号</p>
-                                <p>{studentInfo.phone}</p>
+                                <p>{studentInfo.user.phone}</p>
                             </div>
                             <div>
                                 <p className="text-sm font-medium">注册时间</p>
-                                <p>{studentInfo.createdAt}</p>
+                                <p>{studentInfo.user.createdAt}</p>
                             </div>
                         </CardContent>
                     </Card>

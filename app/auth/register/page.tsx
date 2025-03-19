@@ -41,14 +41,14 @@ export default function RegisterPage() {
         setLoading(true);
 
         try {
-            const response = await apiClient.post('/user/auth/register', {
+            const response = await apiClient.post('/users/register', {
                 username: formData.username,
                 password: formData.password,
                 name: formData.name,
                 studentId: formData.studentId,
                 email: formData.email,
                 phone: formData.phone,
-                role: 0
+                role: 'student'
             });
 
             if (response.code === 0) {

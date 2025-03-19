@@ -12,7 +12,7 @@ export default function LoginPage() {
     const [formData, setFormData] = useState({
         username: '',
         password: '',
-        role: '0'
+        role: 'student'
     });
     const [loading, setLoading] = useState(false);
 
@@ -26,15 +26,14 @@ export default function LoginPage() {
         setLoading(true);
 
         try {
-            const response = await apiClient.post("/user/auth/login", {
+            const response = await apiClient.post("/users/login", {
                 username: formData.username,
                 password: formData.password
             });
-            console.log("response ===>", response)
             if (response.data.code === 0) {
                 // 登录成功
                 localStorage.setItem('token', response.data.token);
-                localStorage.setItem('role', response.data.user.role);
+                localStorage.setItem('role', response.data.role);
 
                 toast.success('登录成功', {
                     description: '欢迎回来！',
@@ -42,10 +41,16 @@ export default function LoginPage() {
                 });
 
                 // 根据用户类型跳转到不同的页面
-                if (response.data.user.role === '1') {
-                    router.push('/teacher/dashboard');
-                } else {
-                    router.push('/student/dashboard');
+                switch (response.data.role) {
+                    case 'student':
+                        router.push('/student/dashboard');
+                        break;
+                    case 'teacher':
+                        router.push('/teacher/dashboard');
+                        break;
+                    case 'doctor':
+                        router.push('/doctor/dashboard');
+                        break;
                 }
             } else {
                 // 登录失败
