@@ -10,36 +10,55 @@ import { toast } from 'sonner';
 // 导入头像组件
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/_components/ui/avatar";
 
-interface TeacherInfo {
+
+// 更新接口定义
+interface TeacherRoleInfo {
+    id: number;
+    userId: number;
+    employeeId: string;
+    title: string;
+    department: string;
+    researchField: string;
+    officeLocation: string | null;
+    officeHours: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
+interface UserInfo {
     id: number;
     username: string;
     name: string;
-    teacherId: string;
-    role: string;
-    email: string;
+    sex: string | null;
     phone: string;
+    email: string;
+    avatar: string | null;
+    role: string;
+    remark: string | null;
     createdAt: string;
-    avatar: string;
-    sex: 'male' | 'female' | 'other';
-    title: string; // 职称
-    specialty: string; // 专长
+    updatedAt: string;
+}
+
+interface TeacherInfo {
+    roleInfo: TeacherRoleInfo;
+    user: UserInfo;
 }
 
 export default function TeacherDashboard() {
     const router = useRouter();
     const [teacherInfo, setTeacherInfo] = useState<TeacherInfo | null>(null);
 
-    // 使用SWR获取教师信息
+    // 修改API路径
     const { data, error, isLoading } = useApi<TeacherInfo>('/users/profile');
     useEffect(() => {
-        // 检查用户是否已登录
         const token = localStorage.getItem('token');
         const role = localStorage.getItem('role');
-        if (!token || role !== 'teacher') { // 教师角色值为1
+        if (!token || role !== 'teacher') {
             router.push('/auth/login');
             return;
         }
 
+        // 修改数据访问路径
         if (data) {
             setTeacherInfo(data);
         }
@@ -88,45 +107,57 @@ export default function TeacherDashboard() {
                         <CardContent className="grid md:grid-cols-2 gap-4">
                             <div className="md:col-span-2 flex items-center space-x-4">
                                 <Avatar className="h-20 w-20">
-                                    <AvatarImage src={teacherInfo.avatar} alt={teacherInfo.name} />
-                                    <AvatarFallback>{teacherInfo.name?.[0]?.toUpperCase() || '?'}</AvatarFallback>
+                                    <AvatarImage src={teacherInfo.user.avatar || ''} alt={teacherInfo.user.name} />
+                                    <AvatarFallback>{teacherInfo.user.name?.[0]?.toUpperCase() || '?'}</AvatarFallback>
                                 </Avatar>
                                 <div>
                                     <p className="text-sm font-medium">用户名</p>
-                                    <p>{teacherInfo.username}</p>
+                                    <p>{teacherInfo.user.username}</p>
                                 </div>
                             </div>
                             <div>
                                 <p className="text-sm font-medium">姓名</p>
-                                <p>{teacherInfo.name}</p>
+                                <p>{teacherInfo.user.name}</p>
                             </div>
                             <div>
                                 <p className="text-sm font-medium">性别</p>
-                                <p>{teacherInfo.sex === 'male' ? '男' : teacherInfo.sex === 'female' ? '女' : '其他'}</p>
+                                <p>{teacherInfo.user.sex === 'male' ? '男' : teacherInfo.user.sex === 'female' ? '女' : '未设置'}</p>
                             </div>
                             <div>
                                 <p className="text-sm font-medium">工号</p>
-                                <p>{teacherInfo.teacherId}</p>
+                                <p>{teacherInfo.roleInfo.employeeId}</p>
                             </div>
                             <div>
                                 <p className="text-sm font-medium">职称</p>
-                                <p>{teacherInfo.title}</p>
+                                <p>{teacherInfo.roleInfo.title || '未设置'}</p>
                             </div>
                             <div>
-                                <p className="text-sm font-medium">专长</p>
-                                <p>{teacherInfo.specialty}</p>
+                                <p className="text-sm font-medium">部门</p>
+                                <p>{teacherInfo.roleInfo.department || '未设置'}</p>
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium">研究领域</p>
+                                <p>{teacherInfo.roleInfo.researchField || '未设置'}</p>
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium">办公地点</p>
+                                <p>{teacherInfo.roleInfo.officeLocation || '未设置'}</p>
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium">办公时间</p>
+                                <p>{teacherInfo.roleInfo.officeHours || '未设置'}</p>
                             </div>
                             <div>
                                 <p className="text-sm font-medium">邮箱</p>
-                                <p>{teacherInfo.email}</p>
+                                <p>{teacherInfo.user.email}</p>
                             </div>
                             <div>
                                 <p className="text-sm font-medium">手机号</p>
-                                <p>{teacherInfo.phone}</p>
+                                <p>{teacherInfo.user.phone}</p>
                             </div>
                             <div>
                                 <p className="text-sm font-medium">注册时间</p>
-                                <p>{teacherInfo.createdAt}</p>
+                                <p>{teacherInfo.user.createdAt}</p>
                             </div>
                         </CardContent>
                     </Card>
