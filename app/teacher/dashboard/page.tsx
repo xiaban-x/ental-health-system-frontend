@@ -30,13 +30,12 @@ export default function TeacherDashboard() {
     const [teacherInfo, setTeacherInfo] = useState<TeacherInfo | null>(null);
 
     // 使用SWR获取教师信息
-    const { data, error, isLoading } = useApi<TeacherInfo>('/user/info');
+    const { data, error, isLoading } = useApi<TeacherInfo>('/users/profile');
     useEffect(() => {
         // 检查用户是否已登录
         const token = localStorage.getItem('token');
         const role = localStorage.getItem('role');
-        console.log("role ===>", role)
-        if (!token || role !== '1') { // 教师角色值为1
+        if (!token || role !== 'teacher') { // 教师角色值为1
             router.push('/auth/login');
             return;
         }
