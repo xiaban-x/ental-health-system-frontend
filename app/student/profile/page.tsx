@@ -121,9 +121,9 @@ export default function StudentProfile() {
                 grade: formData.grade,
             };
 
-            const response = await apiClient.put('/user/profile', {
-                user: userUpdate,
-                roleInfo: roleInfoUpdate
+            const response = await apiClient.put('/users/profile', {
+                ...userUpdate,
+                ...roleInfoUpdate
             });
 
             if (response.code === 0) {

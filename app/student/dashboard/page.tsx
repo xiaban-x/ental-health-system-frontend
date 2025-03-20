@@ -91,7 +91,6 @@ export default function StudentDashboard() {
             </div>
         );
     }
-    console.log("studentInfo ==>", studentInfo)
     return (
         <div className="min-h-screen bg-muted p-6">
             <div className="max-w-7xl mx-auto space-y-6">
