@@ -166,14 +166,31 @@ export default function EditQuestionnaire() {
         }
     };
 
-    const handleUpdateQuestionOrder = async (questionId: number, newOrder: number) => {
+    const handleUpdateQuestionOrder = async (questionId: number, direction: 'up' | 'down') => {
         try {
-            const response = await apiClient.put(`/questionnaire/${questionnaireId}/question/${questionId}/order`, {
-                order: newOrder
+            // 找到当前问题和要交换的问题
+            const currentQuestion = questions.find(q => q.id === questionId);
+            if (!currentQuestion) return;
+
+            // 按sequence排序后的问题列表
+            const sortedQuestions = [...questions].sort((a, b) => b.sequence - a.sequence);
+            const currentIndex = sortedQuestions.findIndex(q => q.id === questionId);
+
+            // 根据方向找到要交换的问题
+            const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+            if (targetIndex < 0 || targetIndex >= sortedQuestions.length) return;
+
+            const targetQuestion = sortedQuestions[targetIndex];
+
+            // 交换两个问题的顺序
+            const response = await apiClient.put(`/exam/paper/question/swap-sequence`, {
+                questionId1: currentQuestion.id,
+                sequence1: currentQuestion.sequence,
+                questionId2: targetQuestion.id,
+                sequence2: targetQuestion.sequence
             });
 
             if (response.code === 0) {
-                // 重新获取问题列表
                 fetchQuestionnaireDetails();
             } else {
                 toast.error('更新顺序失败', {
@@ -216,6 +233,9 @@ export default function EditQuestionnaire() {
         2: '判断题',
         3: '填空题'
     } as const;
+
+    const sortedQuestions = [...questions].sort((a, b) => b.sequence - a.sequence);
+
     return (
         <div className="min-h-screen bg-muted p-6">
             <div className="max-w-7xl mx-auto space-y-6">
@@ -328,14 +348,16 @@ export default function EditQuestionnaire() {
                                                         <Button
                                                             variant="outline"
                                                             size="sm"
-                                                            onClick={() => handleUpdateQuestionOrder(question.id, question.sequence + 1)}
+                                                            onClick={() => handleUpdateQuestionOrder(question.id, 'up')}
+                                                            disabled={index === 0}
                                                         >
                                                             上移
                                                         </Button>
                                                         <Button
                                                             variant="outline"
                                                             size="sm"
-                                                            onClick={() => handleUpdateQuestionOrder(question.id, question.sequence - 1)}
+                                                            onClick={() => handleUpdateQuestionOrder(question.id, 'down')}
+                                                            disabled={index === sortedQuestions.length - 1}
                                                         >
                                                             下移
                                                         </Button>
