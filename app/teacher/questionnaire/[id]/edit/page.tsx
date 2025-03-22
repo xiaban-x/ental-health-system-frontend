@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/app/_components/ui/button';
-import { apiClient } from '@/app/_lib/api-client';
+import { apiClient, useApi } from '@/app/_lib/api-client';
 import { toast } from 'sonner';
 import { QuestionData } from '@/app/teacher/_components/question-form/types';
 import QuestionnaireInfoCard from '@/app/teacher/_components/questionnaire/QuestionnaireInfoCard';
@@ -36,10 +36,26 @@ export default function EditQuestionnaire() {
     const router = useRouter();
     const params = useParams();
     const questionnaireId = Number(params.id);
+    const [loading, setLoading] = useState(false);
 
-    const [questionnaire, setQuestionnaire] = useState<Questionnaire | null>(null);
-    const [questions, setQuestions] = useState<Question[]>([]);
-    const [loading, setLoading] = useState(true);
+    // 使用SWR获取问卷详情
+    const {
+        data: questionnaire,
+        error: questionnaireError,
+        mutate: mutateQuestionnaire
+    } = useApi<Questionnaire>(`/assessment/${questionnaireId}`);
+
+    // 使用SWR获取问题列表
+    const {
+        data: questionsData,
+        error: questionsError,
+        mutate: mutateQuestions
+    } = useApi<Question[]>(`/assessment/${questionnaireId}/questions`, undefined, {
+        onSuccess: (data: Question[]) => {
+            // 成功获取数据后按sequence排序 (从小到大)
+            return data.sort((a, b) => b.sequence - a.sequence);
+        }
+    });
 
     useEffect(() => {
         // 检查用户是否已登录
@@ -50,52 +66,29 @@ export default function EditQuestionnaire() {
             router.push('/auth/login');
             return;
         }
+    }, [router]);
 
-        fetchQuestionnaireDetails();
-    }, [router, questionnaireId]);
-
-    const fetchQuestionnaireDetails = async () => {
-        setLoading(true);
-        try {
-            // 获取问卷详情
-            const questionnaireResponse = await apiClient.get<Questionnaire>(`/assessment/${questionnaireId}`);
-            if (questionnaireResponse.code === 0 && questionnaireResponse.data) {
-                setQuestionnaire(questionnaireResponse.data);
-            } else {
-                toast.error('获取问卷详情失败', {
-                    description: questionnaireResponse.msg || '无法加载问卷详情',
-                    position: 'top-center',
-                });
-                router.push('/teacher/questionnaire');
-                return;
-            }
-
-            // 获取问卷问题列表
-            const questionsResponse = await apiClient.get<Question[]>(`/assessment/${questionnaireId}/questions`);
-            if (questionsResponse.code === 0 && questionsResponse.data) {
-                // 按sequence排序
-                const sortedQuestions = questionsResponse.data.sort((a, b) => b.sequence - a.sequence);
-                setQuestions(sortedQuestions);
-            } else {
-                toast.error('获取问题列表失败', {
-                    description: questionsResponse.msg || '无法加载问题列表',
-                    position: 'top-center',
-                });
-            }
-        } catch (error) {
-            console.error('获取问卷详情错误:', error);
+    // 处理错误
+    useEffect(() => {
+        if (questionnaireError) {
             toast.error('获取问卷详情失败', {
-                description: '服务器错误，请稍后再试',
+                description: '无法加载问卷详情',
                 position: 'top-center',
             });
             router.push('/teacher/questionnaire');
-        } finally {
-            setLoading(false);
         }
-    };
+
+        if (questionsError) {
+            toast.error('获取问题列表失败', {
+                description: '无法加载问题列表',
+                position: 'top-center',
+            });
+        }
+    }, [questionnaireError, questionsError, router]);
 
     const handleAddQuestion = async (questionData: QuestionData) => {
         try {
+            setLoading(true);
             // 确保选择题有选项
             if ([0, 1].includes(questionData.type) && (!questionData.options || JSON.parse(questionData.options).length < 2)) {
                 toast.error('添加失败', {
@@ -123,12 +116,11 @@ export default function EditQuestionnaire() {
                     position: 'top-center',
                 });
 
-                // 添加成功后直接更新本地状态，避免重新请求
-                const newQuestion = response.data;
-                setQuestions((prev) => {
-                    const updated = [...prev, newQuestion].sort((a, b) => b.sequence - a.sequence);
-                    return updated;
-                });
+                // 使用SWR的mutate更新本地缓存
+                if (questionsData) {
+                    const newQuestions = [...questionsData, response.data].sort((a, b) => b.sequence - a.sequence);
+                    mutateQuestions(newQuestions, false);
+                }
             } else {
                 toast.error('添加失败', {
                     description: response.msg || '无法添加问题',
@@ -141,11 +133,14 @@ export default function EditQuestionnaire() {
                 description: '服务器错误，请稍后再试',
                 position: 'top-center',
             });
+        } finally {
+            setLoading(false);
         }
     };
 
     const handleUpdateQuestion = async (questionId: number, questionData: QuestionData) => {
         try {
+            setLoading(true);
             // 确保选择题有选项
             if ([0, 1].includes(questionData.type) && (!questionData.options || JSON.parse(questionData.options).length < 2)) {
                 toast.error('更新失败', {
@@ -173,9 +168,9 @@ export default function EditQuestionnaire() {
                     position: 'top-center',
                 });
 
-                // 更新本地状态，避免重新请求
-                setQuestions(prev => {
-                    const updatedQuestions = prev.map(q =>
+                // 使用SWR的mutate更新本地缓存
+                if (questionsData) {
+                    const updatedQuestions = questionsData.map(q =>
                         q.id === questionId
                             ? {
                                 ...q,
@@ -188,9 +183,10 @@ export default function EditQuestionnaire() {
                                 sequence: questionData.sequence
                             }
                             : q
-                    );
-                    return updatedQuestions.sort((a, b) => b.sequence - a.sequence);
-                });
+                    ).sort((a, b) => b.sequence - a.sequence);
+
+                    mutateQuestions(updatedQuestions, false);
+                }
             } else {
                 toast.error('更新失败', {
                     description: response.msg || '无法更新问题',
@@ -203,6 +199,8 @@ export default function EditQuestionnaire() {
                 description: '服务器错误，请稍后再试',
                 position: 'top-center',
             });
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -212,6 +210,7 @@ export default function EditQuestionnaire() {
         }
 
         try {
+            setLoading(true);
             const response = await apiClient.delete(`/questionnaire/${questionnaireId}/question/${questionId}`);
 
             if (response.code === 0) {
@@ -220,8 +219,11 @@ export default function EditQuestionnaire() {
                     position: 'top-center',
                 });
 
-                // 直接更新本地状态，避免重新请求
-                setQuestions(prev => prev.filter(q => q.id !== questionId));
+                // 使用SWR的mutate更新本地缓存
+                if (questionsData) {
+                    const filteredQuestions = questionsData.filter(q => q.id !== questionId);
+                    mutateQuestions(filteredQuestions, false);
+                }
             } else {
                 toast.error('删除失败', {
                     description: response.msg || '无法删除问题',
@@ -234,50 +236,51 @@ export default function EditQuestionnaire() {
                 description: '服务器错误，请稍后再试',
                 position: 'top-center',
             });
+        } finally {
+            setLoading(false);
         }
     };
 
     const handleMoveQuestion = async (questionId: number, direction: 'up' | 'down') => {
-        // 找到当前问题和要交换的问题
-        const sortedQuestions = [...questions].sort((a, b) => b.sequence - a.sequence);
-        const currentIndex = sortedQuestions.findIndex(q => q.id === questionId);
-
-        if (currentIndex === -1) return;
-
-        // 根据方向找到要交换的问题
-        const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-        if (targetIndex < 0 || targetIndex >= sortedQuestions.length) return;
-
-        const currentQuestion = sortedQuestions[currentIndex];
-        const targetQuestion = sortedQuestions[targetIndex];
-
-        // 先在本地更新状态，实现即时反馈
-        const updatedQuestions = [...sortedQuestions];
-
-        // 交换sequence值
-        const tempSequence = currentQuestion.sequence;
-        updatedQuestions[currentIndex] = { ...currentQuestion, sequence: targetQuestion.sequence };
-        updatedQuestions[targetIndex] = { ...targetQuestion, sequence: tempSequence };
-
-        // 更新本地状态
-        setQuestions(updatedQuestions);
-
-        // 然后异步发送请求到后端
         try {
+            // 找到当前问题和要交换的问题
+            if (!questionsData) return;
+
+            const currentIndex = questionsData.findIndex(q => q.id === questionId);
+            if (currentIndex === -1) return;
+
+            const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+            if (targetIndex < 0 || targetIndex >= questionsData.length) return;
+
+            const currentQuestion = questionsData[currentIndex];
+            const targetQuestion = questionsData[targetIndex];
+
+            // 创建新的问题列表并交换sequence值
+            const newQuestions = [...questionsData];
+            const tempSequence = currentQuestion.sequence;
+
+            // 更新本地状态中的sequence值
+            newQuestions[currentIndex] = { ...currentQuestion, sequence: targetQuestion.sequence };
+            newQuestions[targetIndex] = { ...targetQuestion, sequence: tempSequence };
+
+            // 先更新本地状态，提供即时反馈
+            mutateQuestions(newQuestions.sort((a, b) => b.sequence - a.sequence), false);
+
+            // 发送请求到后端
             const response = await apiClient.put(`/assessment/question/swap-sequence`, {
                 questionId1: currentQuestion.id,
-                sequence1: currentQuestion.sequence,
+                sequence1: targetQuestion.sequence,
                 questionId2: targetQuestion.id,
-                sequence2: targetQuestion.sequence
+                sequence2: tempSequence
             });
 
             if (response.code !== 0) {
-                // 如果请求失败，回滚本地状态
                 toast.error('更新顺序失败', {
                     description: response.msg || '无法更新问题顺序',
                     position: 'top-center',
                 });
-                fetchQuestionnaireDetails(); // 重新获取数据以恢复正确状态
+                // 如果失败，重新获取数据
+                mutateQuestions();
             }
         } catch (error) {
             console.error('更新问题顺序错误:', error);
@@ -285,25 +288,19 @@ export default function EditQuestionnaire() {
                 description: '服务器错误，请稍后再试',
                 position: 'top-center',
             });
-            fetchQuestionnaireDetails(); // 重新获取数据以恢复正确状态
+            // 如果失败，重新获取数据
+            mutateQuestions();
         }
     };
 
-    if (loading) {
+    // 判断是否正在加载
+    const isLoading = !questionnaire || !questionsData || loading;
+
+    if (isLoading) {
         return (
             <div className="min-h-screen bg-muted p-6">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center py-12">加载中...</div>
-                </div>
-            </div>
-        );
-    }
-
-    if (!questionnaire) {
-        return (
-            <div className="min-h-screen bg-muted p-6">
-                <div className="max-w-7xl mx-auto">
-                    <div className="text-center py-12">问卷不存在或已被删除</div>
                 </div>
             </div>
         );
@@ -332,7 +329,7 @@ export default function EditQuestionnaire() {
                 <QuestionnaireInfoCard questionnaire={questionnaire} />
 
                 <QuestionList
-                    questions={questions}
+                    questions={questionsData}
                     questionnaireId={questionnaireId}
                     questionnaireName={questionnaire.title}
                     isEditable={questionnaire.status === 0}
@@ -340,6 +337,7 @@ export default function EditQuestionnaire() {
                     onDeleteQuestion={handleDeleteQuestion}
                     onUpdateQuestion={handleUpdateQuestion}
                     onMoveQuestion={handleMoveQuestion}
+                    mutateQuestions={mutateQuestions} // 传递mutateQuestions给子组件
                 />
             </div>
         </div>

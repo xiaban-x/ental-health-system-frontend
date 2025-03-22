@@ -26,6 +26,8 @@ interface QuestionListProps {
     onDeleteQuestion: (questionId: number) => Promise<void>;
     onUpdateQuestion: (questionId: number, questionData: QuestionData) => Promise<void>;
     onMoveQuestion: (questionId: number, direction: 'up' | 'down') => void;
+    // 添加mutateQuestions属性，用于直接更新SWR缓存
+    mutateQuestions: (data?: Question[], shouldRevalidate?: boolean) => Promise<Question[] | undefined>;
 }
 
 export default function QuestionList({
@@ -36,7 +38,8 @@ export default function QuestionList({
     onAddQuestion,
     onDeleteQuestion,
     onUpdateQuestion,
-    onMoveQuestion
+    onMoveQuestion,
+    mutateQuestions
 }: QuestionListProps) {
     const [showAddForm, setShowAddForm] = useState(false);
     const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
@@ -64,6 +67,48 @@ export default function QuestionList({
     const handleAddQuestion = async (questionData: QuestionData) => {
         await onAddQuestion(questionData);
         setShowAddForm(false);
+    };
+
+    // 处理本地移动问题
+    const handleMoveQuestion = (questionId: number, direction: 'up' | 'down') => {
+        // 找到当前问题
+        const currentQuestion = questions.find(q => q.id === questionId);
+        if (!currentQuestion) return;
+
+        // 根据方向找到目标问题
+        let targetQuestion;
+        if (direction === 'up') {
+            targetQuestion = questions
+                .filter(q => q.sequence > currentQuestion.sequence)
+                .sort((a, b) => a.sequence - b.sequence)[0];
+        } else {
+            // 下移：找到sequence比当前问题小的问题中sequence最大的那个
+            targetQuestion = questions
+                .filter(q => q.sequence < currentQuestion.sequence)
+                .sort((a, b) => b.sequence - a.sequence)[0];
+        }
+        console.log("targetQuestion ===>", targetQuestion, currentQuestion)
+        // 如果没有找到目标问题（已经是最上或最下），则不执行操作
+        if (!targetQuestion) return;
+
+        // 创建新数组
+        const newQuestions = [...questions];
+        const currentIndex = newQuestions.findIndex(q => q.id === currentQuestion.id);
+        const targetIndex = newQuestions.findIndex(q => q.id === targetQuestion.id);
+
+        // 交换sequence值
+        const tempSequence = currentQuestion.sequence;
+        newQuestions[currentIndex] = { ...currentQuestion, sequence: targetQuestion.sequence };
+        newQuestions[targetIndex] = { ...targetQuestion, sequence: tempSequence };
+
+        // 按sequence排序后更新SWR缓存
+        const sortedQuestions = [...newQuestions].sort((a, b) => b.sequence - a.sequence);
+
+        // 直接使用父组件传入的mutateQuestions更新SWR缓存
+        mutateQuestions(sortedQuestions, true);
+
+        // 异步调用服务端更新，但不重新验证
+        onMoveQuestion(questionId, direction);
     };
 
     return (
@@ -127,8 +172,8 @@ export default function QuestionList({
                                     isEditable={isEditable}
                                     onEdit={handleEditQuestion}
                                     onDelete={onDeleteQuestion}
-                                    onMoveUp={() => onMoveQuestion(question.id, 'up')}
-                                    onMoveDown={() => onMoveQuestion(question.id, 'down')}
+                                    onMoveUp={() => handleMoveQuestion(question.id, 'up')}
+                                    onMoveDown={() => handleMoveQuestion(question.id, 'down')}
                                     isFirst={index === 0}
                                     isLast={index === questions.length - 1}
                                 />

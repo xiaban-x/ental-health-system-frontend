@@ -39,7 +39,7 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
 
     // 用于存储选择题的答案
     const [selectedAnswers, setSelectedAnswers] = useState<string[]>([]);
-    
+
     // 初始化表单数据
     useEffect(() => {
         if (initialData) {
@@ -67,10 +67,9 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        
-        // 特殊处理type字段，确保它是数字类型
-        if (name === 'type') {
-            setFormData(prev => ({ ...prev, [name]: parseInt(value, 10) }));
+        // 特殊处理数字类型字段，确保它们是数字类型
+        if (['type', 'score', 'sequence'].includes(name)) {
+            setFormData(prev => ({ ...prev, [name]: parseInt(value, 10) || 0 }));
         } else {
             setFormData(prev => ({ ...prev, [name]: value }));
         }
@@ -116,19 +115,19 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
     const removeOption = (index: number) => {
         const options = getOptions();
         if (options.length <= 2) return;
-        
+
         options.splice(index, 1);
-        
+
         // 重新编号
         options.forEach((opt: Option, idx: number) => {
             opt.label = String.fromCharCode(65 + idx);
             opt.value = (idx + 1).toString();
         });
-        
+
         setFormData(prev => ({ ...prev, options: JSON.stringify(options) }));
-        
+
         // 更新答案（移除已删除选项的值）
-        const updatedAnswers = selectedAnswers.filter(ans => 
+        const updatedAnswers = selectedAnswers.filter(ans =>
             options.some((opt: Option) => opt.value === ans)
         );
         setSelectedAnswers(updatedAnswers);
@@ -137,7 +136,7 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
 
     const validateForm = (): boolean => {
         const type = getType();
-        
+
         // 验证多选题至少选择两个选项
         if (type === 1) {
             if (selectedAnswers.length < 2) {
@@ -147,7 +146,7 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
                 return false;
             }
         }
-        
+
         // 验证选择题必须有答案
         if ([0, 1].includes(type) && !formData.answer) {
             toast.error("请选择正确答案", {
@@ -155,7 +154,7 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
             });
             return false;
         }
-        
+
         // 验证判断题必须有答案
         if (type === 2 && !formData.answer) {
             toast.error("请选择正确答案", {
@@ -163,17 +162,17 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
             });
             return false;
         }
-        
+
         return true;
     };
 
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        
+
         if (!validateForm()) {
             return;
         }
-        
+
         onSubmit(formData);
     };
 
@@ -234,7 +233,7 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
             {/* 选择题选项和答案 */}
             {[0, 1].includes(getType()) && (
                 <div className="space-y-4">
-                    <OptionsEditor 
+                    <OptionsEditor
                         options={getOptions()}
                         onOptionChange={handleOptionChange}
                         onAddOption={addOption}
@@ -242,13 +241,13 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
                     />
 
                     {getType() === 0 ? (
-                        <SingleChoiceAnswer 
+                        <SingleChoiceAnswer
                             options={getOptions()}
                             value={formData.answer}
                             onValueChange={(value) => handleAnswerChange(value)}
                         />
                     ) : (
-                        <MultiChoiceAnswer 
+                        <MultiChoiceAnswer
                             options={getOptions()}
                             selectedValues={selectedAnswers}
                             onValuesChange={(values) => handleAnswerChange(values)}
@@ -259,7 +258,7 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
 
             {/* 判断题答案 */}
             {getType() === 2 && (
-                <TrueFalseAnswer 
+                <TrueFalseAnswer
                     value={formData.answer}
                     onChange={handleChange}
                 />
@@ -267,7 +266,7 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
 
             {/* 填空题答案 - 非必填 */}
             {getType() === 3 && (
-                <FillBlankAnswer 
+                <FillBlankAnswer
                     value={formData.answer}
                     onChange={handleChange}
                 />
