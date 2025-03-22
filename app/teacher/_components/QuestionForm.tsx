@@ -1,36 +1,21 @@
 'use client';
 
-import { FormEvent, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/app/_components/ui/button';
-import { Checkbox } from '@/app/_components/ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '@/app/_components/ui/radio-group';
 import { toast } from 'sonner';
+import { QuestionData, Option } from './question-form/types';
+import OptionsEditor from './question-form/OptionsEditor';
+import SingleChoiceAnswer from './question-form/SingleChoiceAnswer';
+import MultiChoiceAnswer from './question-form/MultiChoiceAnswer';
+import TrueFalseAnswer from './question-form/TrueFalseAnswer';
+import FillBlankAnswer from './question-form/FillBlankAnswer';
 
-// 更新接口定义
 interface QuestionFormProps {
     onSubmit: (data: QuestionData) => void;
     onCancel: () => void;
     initialData?: QuestionData;
     paperId: number;
     paperName: string;
-}
-
-export interface QuestionData {
-    paperId: number;
-    paperName: string;
-    questionName: string;
-    options: string;
-    score: number;
-    answer: string;
-    analysis: string;
-    type: number;
-    sequence: number;
-}
-
-interface Option {
-    label: string;
-    value: string;
-    text: string;
 }
 
 export default function QuestionForm({ onSubmit, onCancel, initialData, paperId, paperName }: QuestionFormProps) {
@@ -75,8 +60,6 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
 
     // 当题目类型改变时重置相关状态
     useEffect(() => {
-        const type = getType();
-        
         // 重置答案
         setSelectedAnswers([]);
         setFormData(prev => ({ ...prev, answer: '' }));
@@ -173,6 +156,14 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
             return false;
         }
         
+        // 验证判断题必须有答案
+        if (type === 2 && !formData.answer) {
+            toast.error("请选择正确答案", {
+                position: "top-center"
+            });
+            return false;
+        }
+        
         return true;
     };
 
@@ -243,127 +234,43 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
             {/* 选择题选项和答案 */}
             {[0, 1].includes(getType()) && (
                 <div className="space-y-4">
-                    {/* 选项编辑 */}
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">
-                            选项 <span className="text-red-500">*</span>
-                        </label>
-                        <div className="space-y-2">
-                            {getOptions().map((option: Option, index: number) => (
-                                <div key={index} className="flex items-center space-x-2">
-                                    <span className="w-8">{option.label}.</span>
-                                    <input
-                                        type="text"
-                                        value={option.text}
-                                        onChange={(e) => handleOptionChange(index, e.target.value)}
-                                        className="flex-1 p-2 border rounded-md focus:ring-2 focus:ring-primary"
-                                        placeholder={`选项 ${option.label}`}
-                                        required
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => removeOption(index)}
-                                        className="p-2 text-red-500 hover:text-red-700"
-                                        disabled={getOptions().length <= 2}
-                                    >
-                                        删除
-                                    </button>
-                                </div>
-                            ))}
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={addOption}
-                                className="mt-2"
-                            >
-                                添加选项
-                            </Button>
-                        </div>
-                    </div>
+                    <OptionsEditor 
+                        options={getOptions()}
+                        onOptionChange={handleOptionChange}
+                        onAddOption={addOption}
+                        onRemoveOption={removeOption}
+                    />
 
-                    {/* 答案选择 */}
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">
-                            正确答案 <span className="text-red-500">*</span>
-                            {getType() === 1 && <span className="text-xs text-gray-500 ml-2">(至少选择两个)</span>}
-                        </label>
-                        <div className="space-y-2">
-                            {getType() === 0 ? (
-                                <RadioGroup
-                                    value={formData.answer}
-                                    onValueChange={(value) => handleAnswerChange(value)}
-                                    className="space-y-2"
-                                >
-                                    {getOptions().map((option: Option) => (
-                                        <div key={option.value} className="flex items-center space-x-2">
-                                            <RadioGroupItem value={option.value} id={`answer-${option.value}`} />
-                                            <label htmlFor={`answer-${option.value}`}>{option.label}</label>
-                                        </div>
-                                    ))}
-                                </RadioGroup>
-                            ) : (
-                                <div className="space-y-2">
-                                    {getOptions().map((option: Option) => (
-                                        <div key={option.value} className="flex items-center space-x-2">
-                                            <Checkbox
-                                                id={`answer-${option.value}`}
-                                                checked={selectedAnswers.includes(option.value)}
-                                                onCheckedChange={(checked) => {
-                                                    const newAnswers = checked
-                                                        ? [...selectedAnswers, option.value]
-                                                        : selectedAnswers.filter(v => v !== option.value);
-                                                    handleAnswerChange(newAnswers);
-                                                }}
-                                            />
-                                            <label htmlFor={`answer-${option.value}`}>{option.label}</label>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                    {getType() === 0 ? (
+                        <SingleChoiceAnswer 
+                            options={getOptions()}
+                            value={formData.answer}
+                            onValueChange={(value) => handleAnswerChange(value)}
+                        />
+                    ) : (
+                        <MultiChoiceAnswer 
+                            options={getOptions()}
+                            selectedValues={selectedAnswers}
+                            onValuesChange={(values) => handleAnswerChange(values)}
+                        />
+                    )}
                 </div>
             )}
 
             {/* 判断题答案 */}
             {getType() === 2 && (
-                <div className="space-y-2">
-                    <label htmlFor="answer" className="text-sm font-medium">
-                        正确答案 <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                        id="answer"
-                        name="answer"
-                        value={formData.answer}
-                        onChange={handleChange}
-                        required
-                        className="w-full p-2 border rounded-md focus:ring-2 focus:ring-primary"
-                    >
-                        <option value="">请选择</option>
-                        <option value="1">正确</option>
-                        <option value="0">错误</option>
-                    </select>
-                </div>
+                <TrueFalseAnswer 
+                    value={formData.answer}
+                    onChange={handleChange}
+                />
             )}
 
-            {/* 填空题答案 */}
+            {/* 填空题答案 - 非必填 */}
             {getType() === 3 && (
-                <div className="space-y-2">
-                    <label htmlFor="answer" className="text-sm font-medium">
-                        正确答案 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                        type="text"
-                        id="answer"
-                        name="answer"
-                        value={formData.answer}
-                        onChange={handleChange}
-                        required
-                        className="w-full p-2 border rounded-md focus:ring-2 focus:ring-primary"
-                        placeholder="请输入正确答案"
-                    />
-                </div>
+                <FillBlankAnswer 
+                    value={formData.answer}
+                    onChange={handleChange}
+                />
             )}
 
             {/* 答案解析 */}
