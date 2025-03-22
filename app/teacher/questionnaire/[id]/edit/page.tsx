@@ -1,12 +1,13 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/_components/ui/card';
 import { Button } from '@/app/_components/ui/button';
 import { apiClient } from '@/app/_lib/api-client';
 import { toast } from 'sonner';
-import QuestionForm, { QuestionData } from '@/app/teacher/_components/QuestionForm';
+import { QuestionData } from '@/app/teacher/_components/question-form/types';
+import QuestionnaireInfoCard from '@/app/teacher/_components/questionnaire/QuestionnaireInfoCard';
+import QuestionList from '@/app/teacher/_components/questionnaire/QuestionList';
 
 interface Questionnaire {
     id: number;
@@ -17,13 +18,6 @@ interface Questionnaire {
     userId: number;
     createdAt: string;
     updatedAt: string;
-}
-
-// 更新接口定义
-interface Option {
-    label: string;
-    value: string;
-    text: string;
 }
 
 interface Question {
@@ -46,7 +40,6 @@ export default function EditQuestionnaire() {
     const [questionnaire, setQuestionnaire] = useState<Questionnaire | null>(null);
     const [questions, setQuestions] = useState<Question[]>([]);
     const [loading, setLoading] = useState(true);
-    const [showAddForm, setShowAddForm] = useState(false);
 
     useEffect(() => {
         // 检查用户是否已登录
@@ -80,7 +73,9 @@ export default function EditQuestionnaire() {
             // 获取问卷问题列表
             const questionsResponse = await apiClient.get<Question[]>(`/assessment/${questionnaireId}/questions`);
             if (questionsResponse.code === 0 && questionsResponse.data) {
-                setQuestions(questionsResponse.data);
+                // 按sequence排序
+                const sortedQuestions = questionsResponse.data.sort((a, b) => b.sequence - a.sequence);
+                setQuestions(sortedQuestions);
             } else {
                 toast.error('获取问题列表失败', {
                     description: questionsResponse.msg || '无法加载问题列表',
@@ -110,7 +105,7 @@ export default function EditQuestionnaire() {
                 return;
             }
 
-            const response = await apiClient.post(`/questions`, {
+            const response = await apiClient.post<Question>(`/questions`, {
                 paperId: questionnaireId,
                 paperName: questionnaire?.title,
                 questionName: questionData.questionName,
@@ -127,8 +122,13 @@ export default function EditQuestionnaire() {
                     description: '问题已添加到问卷中',
                     position: 'top-center',
                 });
-                fetchQuestionnaireDetails();
-                setShowAddForm(false);
+
+                // 添加成功后直接更新本地状态，避免重新请求
+                const newQuestion = response.data;
+                setQuestions((prev) => {
+                    const updated = [...prev, newQuestion].sort((a, b) => b.sequence - a.sequence);
+                    return updated;
+                });
             } else {
                 toast.error('添加失败', {
                     description: response.msg || '无法添加问题',
@@ -138,6 +138,68 @@ export default function EditQuestionnaire() {
         } catch (error) {
             console.error('添加问题错误:', error);
             toast.error('添加失败', {
+                description: '服务器错误，请稍后再试',
+                position: 'top-center',
+            });
+        }
+    };
+
+    const handleUpdateQuestion = async (questionId: number, questionData: QuestionData) => {
+        try {
+            // 确保选择题有选项
+            if ([0, 1].includes(questionData.type) && (!questionData.options || JSON.parse(questionData.options).length < 2)) {
+                toast.error('更新失败', {
+                    description: '选择题至少需要两个选项',
+                    position: 'top-center',
+                });
+                return;
+            }
+
+            const response = await apiClient.put(`/questions/${questionId}`, {
+                paperId: questionnaireId,
+                paperName: questionnaire?.title,
+                questionName: questionData.questionName,
+                options: questionData.options,
+                score: questionData.score,
+                answer: questionData.answer,
+                analysis: questionData.analysis,
+                type: questionData.type,
+                sequence: questionData.sequence
+            });
+
+            if (response.code === 0) {
+                toast.success('更新成功', {
+                    description: '问题已更新',
+                    position: 'top-center',
+                });
+
+                // 更新本地状态，避免重新请求
+                setQuestions(prev => {
+                    const updatedQuestions = prev.map(q =>
+                        q.id === questionId
+                            ? {
+                                ...q,
+                                questionName: questionData.questionName,
+                                options: questionData.options,
+                                score: questionData.score,
+                                answer: questionData.answer,
+                                analysis: questionData.analysis,
+                                type: questionData.type,
+                                sequence: questionData.sequence
+                            }
+                            : q
+                    );
+                    return updatedQuestions.sort((a, b) => b.sequence - a.sequence);
+                });
+            } else {
+                toast.error('更新失败', {
+                    description: response.msg || '无法更新问题',
+                    position: 'top-center',
+                });
+            }
+        } catch (error) {
+            console.error('更新问题错误:', error);
+            toast.error('更新失败', {
                 description: '服务器错误，请稍后再试',
                 position: 'top-center',
             });
@@ -157,8 +219,9 @@ export default function EditQuestionnaire() {
                     description: '问题已从问卷中删除',
                     position: 'top-center',
                 });
-                // 重新获取问题列表
-                fetchQuestionnaireDetails();
+
+                // 直接更新本地状态，避免重新请求
+                setQuestions(prev => prev.filter(q => q.id !== questionId));
             } else {
                 toast.error('删除失败', {
                     description: response.msg || '无法删除问题',
@@ -174,23 +237,33 @@ export default function EditQuestionnaire() {
         }
     };
 
-    const handleUpdateQuestionOrder = async (questionId: number, direction: 'up' | 'down') => {
+    const handleMoveQuestion = async (questionId: number, direction: 'up' | 'down') => {
+        // 找到当前问题和要交换的问题
+        const sortedQuestions = [...questions].sort((a, b) => b.sequence - a.sequence);
+        const currentIndex = sortedQuestions.findIndex(q => q.id === questionId);
+
+        if (currentIndex === -1) return;
+
+        // 根据方向找到要交换的问题
+        const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+        if (targetIndex < 0 || targetIndex >= sortedQuestions.length) return;
+
+        const currentQuestion = sortedQuestions[currentIndex];
+        const targetQuestion = sortedQuestions[targetIndex];
+
+        // 先在本地更新状态，实现即时反馈
+        const updatedQuestions = [...sortedQuestions];
+
+        // 交换sequence值
+        const tempSequence = currentQuestion.sequence;
+        updatedQuestions[currentIndex] = { ...currentQuestion, sequence: targetQuestion.sequence };
+        updatedQuestions[targetIndex] = { ...targetQuestion, sequence: tempSequence };
+
+        // 更新本地状态
+        setQuestions(updatedQuestions);
+
+        // 然后异步发送请求到后端
         try {
-            // 找到当前问题和要交换的问题
-            const currentQuestion = questions.find(q => q.id === questionId);
-            if (!currentQuestion) return;
-
-            // 按sequence排序后的问题列表
-            const sortedQuestions = [...questions].sort((a, b) => b.sequence - a.sequence);
-            const currentIndex = sortedQuestions.findIndex(q => q.id === questionId);
-
-            // 根据方向找到要交换的问题
-            const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-            if (targetIndex < 0 || targetIndex >= sortedQuestions.length) return;
-
-            const targetQuestion = sortedQuestions[targetIndex];
-
-            // 交换两个问题的顺序
             const response = await apiClient.put(`/assessment/question/swap-sequence`, {
                 questionId1: currentQuestion.id,
                 sequence1: currentQuestion.sequence,
@@ -198,13 +271,13 @@ export default function EditQuestionnaire() {
                 sequence2: targetQuestion.sequence
             });
 
-            if (response.code === 0) {
-                fetchQuestionnaireDetails();
-            } else {
+            if (response.code !== 0) {
+                // 如果请求失败，回滚本地状态
                 toast.error('更新顺序失败', {
                     description: response.msg || '无法更新问题顺序',
                     position: 'top-center',
                 });
+                fetchQuestionnaireDetails(); // 重新获取数据以恢复正确状态
             }
         } catch (error) {
             console.error('更新问题顺序错误:', error);
@@ -212,6 +285,7 @@ export default function EditQuestionnaire() {
                 description: '服务器错误，请稍后再试',
                 position: 'top-center',
             });
+            fetchQuestionnaireDetails(); // 重新获取数据以恢复正确状态
         }
     };
 
@@ -234,15 +308,6 @@ export default function EditQuestionnaire() {
             </div>
         );
     }
-    // 添加问题类型映射
-    const questionTypes = {
-        0: '单选题',
-        1: '多选题',
-        2: '判断题',
-        3: '填空题'
-    } as const;
-
-    const sortedQuestions = [...questions].sort((a, b) => b.sequence - a.sequence);
 
     return (
         <div className="min-h-screen bg-muted p-6">
@@ -264,131 +329,19 @@ export default function EditQuestionnaire() {
                     </div>
                 </div>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>问卷信息</CardTitle>
-                        <CardDescription>基本信息和状态</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-4">
-                            <div>
-                                <h3 className="text-sm font-medium">问卷标题</h3>
-                                <p>{questionnaire.title}</p>
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-medium">问卷描述</h3>
-                                <p>{questionnaire.description}</p>
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-medium">状态</h3>
-                                <p>
-                                    {questionnaire.status === 0 && '草稿'}
-                                    {questionnaire.status === 1 && '已发布'}
-                                    {questionnaire.status === 2 && '已关闭'}
-                                </p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                <QuestionnaireInfoCard questionnaire={questionnaire} />
 
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <div>
-                            <CardTitle>问题管理</CardTitle>
-                            <CardDescription>添加和管理问卷中的问题</CardDescription>
-                        </div>
-                        {questionnaire.status === 0 && (
-                            <Button onClick={() => setShowAddForm(true)} disabled={showAddForm}>
-                                添加问题
-                            </Button>
-                        )}
-                    </CardHeader>
-                    <CardContent>
-                        {showAddForm && questionnaire && (
-                            <QuestionForm
-                                onSubmit={handleAddQuestion}
-                                onCancel={() => setShowAddForm(false)}
-                                paperId={questionnaireId}
-                                paperName={questionnaire.title}
-                            />
-                        )}
-
-                        {questions.length === 0 ? (
-                            <div className="text-center py-8">
-                                <p className="text-muted-foreground">暂无问题，点击"添加问题"开始创建</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {questions.map((question, index) => (
-                                    <Card key={question.id} className="relative">
-                                        <CardContent className="p-4">
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <span className="text-lg font-semibold">
-                                                            第{index + 1}题 - {question.questionName}
-                                                        </span>
-                                                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
-                                                            {questionTypes[question.type as keyof typeof questionTypes]}
-                                                        </span>
-                                                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
-                                                            {question.score}分
-                                                        </span>
-                                                    </div>
-                                                    {/* 移除重复的问题名称显示 */}
-                                                    {question.options && (
-                                                        <div className="space-y-2 mt-4">
-                                                            {JSON.parse(question.options).map((option: Option) => (
-                                                                <div key={option.label} className="flex items-center gap-2">
-                                                                    <span className="font-medium">{option.label}.</span>
-                                                                    <span>{option.text}</span>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                    {question.analysis && (
-                                                        <div className="mt-4 text-sm text-muted-foreground">
-                                                            <p className="font-medium">答案解析：</p>
-                                                            <p>{question.analysis}</p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                {questionnaire.status === 0 && (
-                                                    <div className="flex gap-2">
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => handleUpdateQuestionOrder(question.id, 'up')}
-                                                            disabled={index === 0}
-                                                        >
-                                                            上移
-                                                        </Button>
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => handleUpdateQuestionOrder(question.id, 'down')}
-                                                            disabled={index === sortedQuestions.length - 1}
-                                                        >
-                                                            下移
-                                                        </Button>
-                                                        <Button
-                                                            variant="destructive"
-                                                            size="sm"
-                                                            onClick={() => handleDeleteQuestion(question.id)}
-                                                        >
-                                                            删除
-                                                        </Button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                <QuestionList
+                    questions={questions}
+                    questionnaireId={questionnaireId}
+                    questionnaireName={questionnaire.title}
+                    isEditable={questionnaire.status === 0}
+                    onAddQuestion={handleAddQuestion}
+                    onDeleteQuestion={handleDeleteQuestion}
+                    onUpdateQuestion={handleUpdateQuestion}
+                    onMoveQuestion={handleMoveQuestion}
+                />
             </div>
         </div>
-    )
+    );
 }
