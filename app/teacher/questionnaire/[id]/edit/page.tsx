@@ -28,8 +28,8 @@ interface Option {
 
 interface Question {
     id: number;
-    papername: string;
-    questionname: string;
+    paperName: string;
+    questionName: string;
     options: string; // JSON字符串
     score: number;
     answer: string;
@@ -101,7 +101,15 @@ export default function EditQuestionnaire() {
 
     const handleAddQuestion = async (questionData: QuestionData) => {
         try {
-            console.log("questionData:", questionData)
+            // 确保选择题有选项
+            if ([0, 1].includes(questionData.type) && (!questionData.options || JSON.parse(questionData.options).length < 2)) {
+                toast.error('添加失败', {
+                    description: '选择题至少需要两个选项',
+                    position: 'top-center',
+                });
+                return;
+            }
+
             const response = await apiClient.post(`/questions`, {
                 paperId: questionnaireId,
                 paperName: questionnaire?.title,
@@ -183,7 +191,7 @@ export default function EditQuestionnaire() {
             const targetQuestion = sortedQuestions[targetIndex];
 
             // 交换两个问题的顺序
-            const response = await apiClient.put(`/exam/paper/question/swap-sequence`, {
+            const response = await apiClient.put(`/assessment/question/swap-sequence`, {
                 questionId1: currentQuestion.id,
                 sequence1: currentQuestion.sequence,
                 questionId2: targetQuestion.id,
@@ -317,7 +325,9 @@ export default function EditQuestionnaire() {
                                             <div className="flex justify-between items-start mb-4">
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-2 mb-2">
-                                                        <span className="text-lg font-semibold">第{index + 1}题</span>
+                                                        <span className="text-lg font-semibold">
+                                                            第{index + 1}题 - {question.questionName}
+                                                        </span>
                                                         <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
                                                             {questionTypes[question.type as keyof typeof questionTypes]}
                                                         </span>
@@ -325,9 +335,9 @@ export default function EditQuestionnaire() {
                                                             {question.score}分
                                                         </span>
                                                     </div>
-                                                    <h3 className="text-base font-medium mb-2">{question.questionname}</h3>
+                                                    {/* 移除重复的问题名称显示 */}
                                                     {question.options && (
-                                                        <div className="space-y-2">
+                                                        <div className="space-y-2 mt-4">
                                                             {JSON.parse(question.options).map((option: Option) => (
                                                                 <div key={option.label} className="flex items-center gap-2">
                                                                     <span className="font-medium">{option.label}.</span>
