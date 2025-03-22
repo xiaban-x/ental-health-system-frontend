@@ -37,22 +37,22 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
         sequence: 0
     });
 
-    // 用于存储选择题的答案
-    const [selectedAnswers, setSelectedAnswers] = useState<string[]>([]);
+    // 移除 selectedAnswers 状态
 
     // 初始化表单数据
     useEffect(() => {
+        console.log("initialData ===>", initialData);
         if (initialData) {
-            setFormData(initialData);
-            // 如果是多选题，解析答案字符串为数组
-            if (initialData.type === 1 && initialData.answer) {
-                setSelectedAnswers(initialData.answer.split(','));
-            } else if (initialData.type === 0 && initialData.answer) {
-                setSelectedAnswers([initialData.answer]);
-            }
+            // 直接设置表单数据，包括答案
+            setFormData({
+                ...initialData,
+                // 确保数字类型字段是数字
+                type: typeof initialData.type === 'string' ? parseInt(initialData.type, 10) : initialData.type,
+                score: typeof initialData.score === 'string' ? parseInt(initialData.score, 10) : initialData.score,
+                sequence: typeof initialData.sequence === 'string' ? parseInt(initialData.sequence, 10) : initialData.sequence
+            });
         }
     }, [initialData]);
-
     // 处理类型转换，确保type是数字
     const getType = (): number => {
         return typeof formData.type === 'string' ? parseInt(formData.type, 10) : formData.type;
@@ -60,10 +60,11 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
 
     // 当题目类型改变时重置相关状态
     useEffect(() => {
-        // 重置答案
-        setSelectedAnswers([]);
-        setFormData(prev => ({ ...prev, answer: '' }));
-    }, [formData.type]);
+        // 只有在非编辑模式下才重置答案
+        if (!initialData) {
+            setFormData(prev => ({ ...prev, answer: '' }));
+        }
+    }, [formData.type, initialData]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -91,12 +92,13 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
         setFormData(prev => ({ ...prev, options: JSON.stringify(options) }));
     };
 
+    // 修改处理答案变更的函数
     const handleAnswerChange = (value: string | string[]) => {
         if (Array.isArray(value)) {
-            setSelectedAnswers(value);
+            // 多选题答案，用逗号连接
             setFormData(prev => ({ ...prev, answer: value.join(',') }));
         } else {
-            setSelectedAnswers([value]);
+            // 单选题答案，直接设置
             setFormData(prev => ({ ...prev, answer: value }));
         }
     };
@@ -116,6 +118,7 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
         const options = getOptions();
         if (options.length <= 2) return;
 
+        const removedOption = options[index];
         options.splice(index, 1);
 
         // 重新编号
@@ -127,11 +130,20 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
         setFormData(prev => ({ ...prev, options: JSON.stringify(options) }));
 
         // 更新答案（移除已删除选项的值）
-        const updatedAnswers = selectedAnswers.filter(ans =>
-            options.some((opt: Option) => opt.value === ans)
-        );
-        setSelectedAnswers(updatedAnswers);
-        setFormData(prev => ({ ...prev, answer: updatedAnswers.join(',') }));
+        const type = getType();
+        if (type === 0) {
+            // 单选题
+            if (formData.answer === removedOption.value) {
+                setFormData(prev => ({ ...prev, answer: '' }));
+            }
+        } else if (type === 1) {
+            // 多选题
+            const answers = formData.answer ? formData.answer.split(',') : [];
+            const updatedAnswers = answers.filter(ans =>
+                options.some(opt => opt.value === ans)
+            );
+            setFormData(prev => ({ ...prev, answer: updatedAnswers.join(',') }));
+        }
     };
 
     const validateForm = (): boolean => {
@@ -139,7 +151,7 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
 
         // 验证多选题至少选择两个选项
         if (type === 1) {
-            if (selectedAnswers.length < 2) {
+            if (formData.answer.length < 2) {
                 toast.error("多选题至少需要选择两个答案", {
                     position: "top-center"
                 });
@@ -173,9 +185,27 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
             return;
         }
 
-        onSubmit(formData);
-    };
+        // 确保答案格式正确
+        const type = getType();
+        let finalAnswer = formData.answer;
 
+        // 单选题和多选题的答案处理已经在 handleAnswerChange 中完成
+        // 判断题答案确认
+        if (type === 2 && formData.answer) {
+            // 确保判断题答案是 "1" 或 "0"
+            finalAnswer = formData.answer === "1" ? "1" : "0";
+        }
+
+        // 提交最终数据
+        onSubmit({
+            ...formData,
+            type: type,
+            score: typeof formData.score === 'string' ? parseInt(formData.score, 10) : formData.score,
+            sequence: typeof formData.sequence === 'string' ? parseInt(formData.sequence, 10) : formData.sequence,
+            answer: finalAnswer
+        });
+    };
+    console.log("formData ===>", formData)
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -249,7 +279,7 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
                     ) : (
                         <MultiChoiceAnswer
                             options={getOptions()}
-                            selectedValues={selectedAnswers}
+                            selectedValues={formData.answer ? formData.answer.split(',') : []}
                             onValuesChange={(values) => handleAnswerChange(values)}
                         />
                     )}
