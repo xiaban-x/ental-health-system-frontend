@@ -12,15 +12,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/app/_components/ui/avatar
 
 
 // 更新接口定义
-interface TeacherRoleInfo {
+interface CounselorInfo {
     id: number;
     userId: number;
-    employeeId: string;
     title: string;
+    specialty: string;
+    introduction: string;
+    status: number;
+    employeeId: string;
     department: string;
-    researchField: string;
-    officeLocation: string | null;
-    officeHours: string | null;
+    officeLocation: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -40,7 +41,7 @@ interface UserInfo {
 }
 
 interface TeacherInfo {
-    roleInfo: TeacherRoleInfo;
+    roleInfo: CounselorInfo;
     user: UserInfo;
 }
 
@@ -125,7 +126,7 @@ export default function TeacherDashboard() {
                             </div>
                             <div>
                                 <p className="text-sm font-medium">工号</p>
-                                <p>{teacherInfo.roleInfo.employeeId}</p>
+                                <p>{teacherInfo.roleInfo.employeeId || '未设置'}</p>
                             </div>
                             <div>
                                 <p className="text-sm font-medium">职称</p>
@@ -136,16 +137,16 @@ export default function TeacherDashboard() {
                                 <p>{teacherInfo.roleInfo.department || '未设置'}</p>
                             </div>
                             <div>
-                                <p className="text-sm font-medium">研究领域</p>
-                                <p>{teacherInfo.roleInfo.researchField || '未设置'}</p>
+                                <p className="text-sm font-medium">专业领域</p>
+                                <p>{teacherInfo.roleInfo.specialty || '未设置'}</p>
                             </div>
                             <div>
                                 <p className="text-sm font-medium">办公地点</p>
                                 <p>{teacherInfo.roleInfo.officeLocation || '未设置'}</p>
                             </div>
                             <div>
-                                <p className="text-sm font-medium">办公时间</p>
-                                <p>{teacherInfo.roleInfo.officeHours || '未设置'}</p>
+                                <p className="text-sm font-medium">个人简介</p>
+                                <p>{teacherInfo.roleInfo.introduction || '未设置'}</p>
                             </div>
                             <div>
                                 <p className="text-sm font-medium">邮箱</p>

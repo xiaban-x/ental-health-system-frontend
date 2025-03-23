@@ -29,15 +29,16 @@ interface TeacherInfo {
 }
 
 // 更新接口定义
-interface TeacherRoleInfo {
+interface CounselorInfo {
     id: number;
     userId: number;
-    employeeId: string;
     title: string;
+    specialty: string;
+    introduction: string;
+    status: number;
+    employeeId: string;
     department: string;
-    researchField: string;
-    officeLocation: string | null;
-    officeHours: string | null;
+    officeLocation: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -57,13 +58,13 @@ interface UserInfo {
 }
 
 interface TeacherInfo {
-    roleInfo: TeacherRoleInfo;
+    roleInfo: CounselorInfo;
     user: UserInfo;
 }
 
 export default function TeacherProfile() {
     const router = useRouter();
-    const [loading, setLoading] = useState<boolean>();
+    const [loading, setLoading] = useState<boolean>(false);
     const [isEditing, setIsEditing] = useState<boolean>(false);
     const [formData, setFormData] = useState({
         // 用户基本信息
@@ -77,9 +78,9 @@ export default function TeacherProfile() {
         employeeId: '',
         title: '',
         department: '',
-        researchField: '',
+        specialty: '',
+        introduction: '',
         officeLocation: '',
-        officeHours: '',
     });
 
     // 修改API路径
@@ -95,6 +96,7 @@ export default function TeacherProfile() {
 
         // 更新数据访问路径
         if (data) {
+            console.log("data ===>", data)
             setFormData({
                 username: data.user.username || '',
                 name: data.user.name || '',
@@ -105,9 +107,9 @@ export default function TeacherProfile() {
                 employeeId: data.roleInfo.employeeId || '',
                 title: data.roleInfo.title || '',
                 department: data.roleInfo.department || '',
-                researchField: data.roleInfo.researchField || '',
+                specialty: data.roleInfo.specialty || '',
+                introduction: data.roleInfo.introduction || '',
                 officeLocation: data.roleInfo.officeLocation || '',
-                officeHours: data.roleInfo.officeHours || '',
             });
         }
     }, [data, router]);
@@ -126,18 +128,18 @@ export default function TeacherProfile() {
                 avatar: formData.avatar,
             };
 
-            const roleInfoUpdate = {
+            const counselorInfoUpdate = {
                 employeeId: formData.employeeId,
                 title: formData.title,
                 department: formData.department,
-                researchField: formData.researchField,
+                specialty: formData.specialty,
+                introduction: formData.introduction,
                 officeLocation: formData.officeLocation,
-                officeHours: formData.officeHours,
             };
 
             const response = await apiClient.put('/users/profile', {
                 ...userUpdate,
-                ...roleInfoUpdate
+                ...counselorInfoUpdate
             });
 
             if (response.code === 0) {
@@ -175,10 +177,10 @@ export default function TeacherProfile() {
                 avatar: data.user.avatar || '',
                 employeeId: data.roleInfo.employeeId || '',
                 title: data.roleInfo.title || '',
+                introduction: data.roleInfo.introduction || '',
+                specialty: data.roleInfo.specialty || '',
                 department: data.roleInfo.department || '',
-                researchField: data.roleInfo.researchField || '',
                 officeLocation: data.roleInfo.officeLocation || '',
-                officeHours: data.roleInfo.officeHours || '',
             });
         }
         setIsEditing(false);
@@ -315,14 +317,58 @@ export default function TeacherProfile() {
                             </div>
 
                             <div className="space-y-2">
-                                <label htmlFor="researchField" className="text-sm font-medium">
-                                    研究领域
+                                <label htmlFor="department" className="text-sm font-medium">
+                                    所属院系
                                 </label>
                                 <input
-                                    id="researchField"
-                                    name="researchField"
+                                    id="department"
+                                    name="department"
                                     type="text"
-                                    value={formData.researchField}
+                                    value={formData.department}
+                                    onChange={handleChange}
+                                    disabled={!isEditing}
+                                    className={`w-full p-2 border rounded-md ${!isEditing ? 'bg-muted' : ''}`}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label htmlFor="specialty" className="text-sm font-medium">
+                                    专业领域
+                                </label>
+                                <input
+                                    id="specialty"
+                                    name="specialty"
+                                    type="text"
+                                    value={formData.specialty}
+                                    onChange={handleChange}
+                                    disabled={!isEditing}
+                                    className={`w-full p-2 border rounded-md ${!isEditing ? 'bg-muted' : ''}`}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label htmlFor="introduction" className="text-sm font-medium">
+                                    个人简介
+                                </label>
+                                <textarea
+                                    id="introduction"
+                                    name="introduction"
+                                    value={formData.introduction}
+                                    onChange={(e) => setFormData({ ...formData, introduction: e.target.value })}
+                                    disabled={!isEditing}
+                                    className={`w-full p-2 border rounded-md min-h-[100px] ${!isEditing ? 'bg-muted' : ''}`}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label htmlFor="officeLocation" className="text-sm font-medium">
+                                    办公室位置
+                                </label>
+                                <input
+                                    id="officeLocation"
+                                    name="officeLocation"
+                                    type="text"
+                                    value={formData.officeLocation}
                                     onChange={handleChange}
                                     disabled={!isEditing}
                                     className={`w-full p-2 border rounded-md ${!isEditing ? 'bg-muted' : ''}`}
