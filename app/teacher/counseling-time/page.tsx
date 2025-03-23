@@ -92,7 +92,7 @@ export default function TeacherCounselingTime() {
         setLoading(true);
 
         try {
-            const response = await apiClient.post('/counselor/create-time-slot', formData);
+            const response = await apiClient.post('/counselor/time-slot', formData);
 
             if (response.code === 0) {
                 toast.success('创建成功', {
