@@ -171,7 +171,7 @@ export default function StudentCounseling() {
         switch (status) {
             case 'pending':
                 return <span className="text-yellow-500">等待确认</span>;
-            case 'confirmed':
+            case 'approved':
                 return <span className="text-green-500">已确认</span>;
             case 'completed':
                 return <span className="text-blue-500">已完成</span>;
