@@ -101,13 +101,14 @@ export function QuestionDisplay({ question, index, showAnswer = false }: Questio
           </div>
           <div>
             <h3 className="text-base font-medium mb-4">{question.questionName}</h3>
-            {question.type !== 3 && options.length > 0 && (
+            {/* 单选题和多选题显示选项列表 */}
+            {(question.type === 0 || question.type === 1) && options.length > 0 && (
               <div className="space-y-2">
                 {options.map((option: any) => (
                   <div key={option.value} className="flex items-center gap-2">
                     <input
                       aria-label={`选项 ${option.label}`}
-                      type={question.type === 0 ? "radio" : question.type === 1 ? "checkbox" : "radio"}
+                      type={question.type === 0 ? "radio" : "checkbox"}
                       name={`question-${question.id}`}
                       value={option.value}
                       disabled
@@ -120,6 +121,7 @@ export function QuestionDisplay({ question, index, showAnswer = false }: Questio
                 ))}
               </div>
             )}
+            {/* 判断题只显示正确/错误选项 */}
             {question.type === 2 && (
               <div className="space-x-4">
                 <label className="inline-flex items-center">
@@ -132,6 +134,7 @@ export function QuestionDisplay({ question, index, showAnswer = false }: Questio
                 </label>
               </div>
             )}
+            {/* 填空题显示文本输入框 */}
             {question.type === 3 && (
               <input
                 type="text"
