@@ -1,4 +1,3 @@
-import { Card, CardContent } from '@/app/_components/ui/card';
 import { Question } from '@/app/teacher/_types/questionnaire';
 import { QuestionItem } from './QuestionItem';
 

@@ -28,12 +28,13 @@ export function QuestionItem({ question, index }: QuestionItemProps) {
                         </span>
                     </div>
                     <div>
-                        <h3 className="text-base font-medium mb-4">{question.questionname}</h3>
+                        <h3 className="text-base font-medium mb-4">{question.questionName}</h3>
                         {question.options && (
                             <div className="space-y-2">
                                 {JSON.parse(question.options).map((option: any) => (
                                     <div key={option.label} className="flex items-center gap-2">
                                         <input
+                                            aria-label={`选项 ${option.label}`}
                                             type={question.type === 0 ? "radio" : "checkbox"}
                                             name={`question-${question.id}`}
                                             value={option.value}

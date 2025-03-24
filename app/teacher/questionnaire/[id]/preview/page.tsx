@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/app/_components/ui/card';
-import { Button } from '@/app/_components/ui/button';
 import { apiClient } from '@/app/_lib/api-client';
 import { toast } from 'sonner';
 import { QuestionnaireHeader } from '@/app/teacher/_components/preview/QuestionnaireHeader';
