@@ -87,7 +87,6 @@ export default function QuestionList({
                 .filter(q => q.sequence < currentQuestion.sequence)
                 .sort((a, b) => b.sequence - a.sequence)[0];
         }
-        console.log("targetQuestion ===>", targetQuestion, currentQuestion)
         // 如果没有找到目标问题（已经是最上或最下），则不执行操作
         if (!targetQuestion) return;
 
