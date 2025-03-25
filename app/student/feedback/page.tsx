@@ -46,10 +46,10 @@ export default function StudentFeedback() {
         setLoading(true);
 
         try {
-            const response = await apiClient.post('/feedback/submit', formData);
+            const response = await apiClient.post('/feedback', formData);
 
             if (response.code === 0) {
-                toast.error('提交成功', {
+                toast.success('提交成功', {
                     description: '感谢您的反馈，我们会认真考虑您的建议',
                     position: 'top-center',
                 });
