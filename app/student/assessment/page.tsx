@@ -36,17 +36,9 @@ interface Question {
 interface AssessmentResult {
     id: number;
     userId: number;
-    username: string;
     paperId: number;
-    paperName: string;
-    questionId: number;
-    questionName: string;
-    options: string;
-    score: number;
-    answer: string;
-    analysis: string;
-    userScore: number;     // 试题得分
-    userAnswer: string;    // 考生答案
+    totalScore: number;     // 试题得分
+    feedback: string;    // 反馈
     createdAt: string;
     updatedAt: string;
 }
@@ -57,13 +49,6 @@ interface Assessment {
     description: string;
     questionCount: number;
     estimatedTime: string;
-}
-
-interface AssessmentResult {
-    score: number;
-    level: string;
-    suggestion: string;
-    createdAt: string;
 }
 
 // 导入分页组件
@@ -96,7 +81,7 @@ export default function StudentAssessment() {
     const [answers, setAnswers] = useState<{ [key: number]: number | string }>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [assessmentCompleted, setAssessmentCompleted] = useState(false);
-    const [result, setResult] = useState<AssessmentResult[] | null>(null);
+    const [result, setResult] = useState<AssessmentResult | null>(null);
 
     // 使用SWR获取评估列表
     // const { data: assessments, error, isLoading } = useApi<Assessment[]>('/assessment/list');
@@ -136,11 +121,17 @@ export default function StudentAssessment() {
         }
     };
 
-    const handleAnswer = (questionId: number, optionValue: string) => {
-        setAnswers(prev => ({ ...prev, [questionId]: optionValue }));
+    const handleAnswer = (questionId: number, optionValue: string | string[]) => {
+        setAnswers((prev: { [key: number]: string | number }) => {
+            const newAnswers = { ...prev };
+            // 将 optionValue 转换为 string | number 类型
+            newAnswers[questionId] = Array.isArray(optionValue) ? optionValue.join(',') : optionValue;
+            return newAnswers as { [key: number]: string | number };
+        });
 
-        // 如果不是最后一个问题，自动前进到下一题
-        if (currentQuestionIndex < questions.length - 1) {
+        // 只有在单选题和判断题的情况下，才自动前进到下一题
+        const currentQuestion = questions[currentQuestionIndex];
+        if ((currentQuestion.type === 0 || currentQuestion.type === 2) && currentQuestionIndex < questions.length - 1) {
             setCurrentQuestionIndex(prev => prev + 1);
         }
     };
@@ -174,7 +165,7 @@ export default function StudentAssessment() {
 
             if (response.code === 0) {
                 setAssessmentCompleted(true);
-                setResult(response.data as AssessmentResult[]);
+                setResult(response.data as AssessmentResult);
                 toast.success('完成评估', {
                     description: '您的评估结果已生成',
                     position: 'top-center'
@@ -225,18 +216,18 @@ export default function StudentAssessment() {
                         <CardHeader>
                             <CardTitle className="text-2xl">评估结果</CardTitle>
                             <CardDescription>
-                                {selectedAssessment?.title} - {result[0].createdAt}
+                                {selectedAssessment?.title} - {result.createdAt}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
                             <div className="p-4 bg-primary/10 rounded-lg">
-                                <h3 className="text-xl font-semibold mb-2">总分: {result[0].score}</h3>
-                                <p className="text-lg">评估等级: {result[0].level}</p>
+                                <h3 className="text-xl font-semibold mb-2">总分: {result.totalScore}</h3>
+                                {/* <p className="text-lg">评估等级: {result.totalScore}</p> */}
                             </div>
 
                             <div>
                                 <h3 className="text-lg font-semibold mb-2">专业建议</h3>
-                                <p className="whitespace-pre-line">{result[0].suggestion}</p>
+                                <p className="whitespace-pre-line">{result.feedback}</p>
                             </div>
 
                             <div className="pt-4 border-t">
@@ -263,6 +254,114 @@ export default function StudentAssessment() {
         // 解析选项 JSON 字符串
         const parsedOptions = JSON.parse(currentQuestion.options);
 
+        // 渲染不同类型的问题选项
+        const renderQuestionOptions = () => {
+            switch (currentQuestion.type) {
+                case 0: // 单选题
+                    return (
+                        <div className="space-y-3">
+                            {parsedOptions.map((option: { label: string; value: string; text: string }) => (
+                                <div
+                                    key={option.value}
+                                    onClick={() => handleAnswer(currentQuestion.id, option.value)}
+                                    className={`p-3 border rounded-lg cursor-pointer transition-colors ${answers[currentQuestion.id] === option.value
+                                        ? 'bg-primary text-primary-foreground'
+                                        : 'hover:bg-muted'
+                                        }`}
+                                >
+                                    {option.label}. {option.text}
+                                </div>
+                            ))}
+                        </div>
+                    );
+                case 1: // 多选题
+                    return (
+                        <div className="space-y-3">
+                            {parsedOptions.map((option: { label: string; value: string; text: string }) => {
+                                // 将当前问题的答案转换为数组
+                                const answerStr = answers[currentQuestion.id] as string || '';
+                                const selectedValues = answerStr ? answerStr.split(',') : [];
+
+                                return (
+                                    <div
+                                        key={option.value}
+                                        onClick={() => {
+                                            // 处理多选逻辑
+                                            const newSelectedValues = [...selectedValues];
+                                            if (newSelectedValues.includes(option.value)) {
+                                                // 如果已选中，则移除
+                                                const index = newSelectedValues.indexOf(option.value);
+                                                newSelectedValues.splice(index, 1);
+                                            } else {
+                                                // 如果未选中，则添加
+                                                newSelectedValues.push(option.value);
+                                            }
+
+                                            handleAnswer(currentQuestion.id, newSelectedValues);
+                                        }}
+                                        className={`p-3 border rounded-lg cursor-pointer transition-colors ${selectedValues.includes(option.value)
+                                            ? 'bg-primary text-primary-foreground'
+                                            : 'hover:bg-muted'
+                                            }`}
+                                    >
+                                        <div className="flex items-center">
+                                            <div className={`w-5 h-5 border rounded mr-2 flex items-center justify-center ${selectedValues.includes(option.value) ? 'bg-primary border-primary' : 'border-gray-300'
+                                                }`}>
+                                                {selectedValues.includes(option.value) && (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-white">
+                                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                                    </svg>
+                                                )}
+                                            </div>
+                                            {option.label}. {option.text}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    );
+                case 2: // 判断题
+                    return (
+                        <div className="space-y-3">
+                            <div
+                                onClick={() => handleAnswer(currentQuestion.id, 'true')}
+                                className={`p-3 border rounded-lg cursor-pointer transition-colors ${answers[currentQuestion.id] === 'true'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'hover:bg-muted'
+                                    }`}
+                            >
+                                正确
+                            </div>
+                            <div
+                                onClick={() => handleAnswer(currentQuestion.id, 'false')}
+                                className={`p-3 border rounded-lg cursor-pointer transition-colors ${answers[currentQuestion.id] === 'false'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'hover:bg-muted'
+                                    }`}
+                            >
+                                错误
+                            </div>
+                        </div>
+                    );
+                case 3: // 填空题
+                    return (
+                        <div className="space-y-3">
+                            <textarea
+                                value={answers[currentQuestion.id] as string || ''}
+                                onChange={(e) => {
+                                    // 对于填空题，只更新答案，不自动跳转
+                                    setAnswers(prev => ({ ...prev, [currentQuestion.id]: e.target.value }));
+                                }}
+                                className="w-full p-3 border rounded-lg min-h-[100px] focus:outline-none focus:ring-2 focus:ring-primary"
+                                placeholder="请输入您的答案..."
+                            />
+                        </div>
+                    );
+                default:
+                    return <div>未知题型</div>;
+            }
+        };
+
         return (
             <div className="min-h-screen bg-muted p-6">
                 <div className="max-w-3xl mx-auto">
@@ -287,21 +386,14 @@ export default function StudentAssessment() {
                         </CardHeader>
                         <CardContent className="space-y-6">
                             <h3 className="text-xl font-medium">{currentQuestion.questionName}</h3>
-
-                            <div className="space-y-3">
-                                {parsedOptions.map((option: { label: string; value: string; text: string }) => (
-                                    <div
-                                        key={option.value}
-                                        onClick={() => handleAnswer(currentQuestion.id, option.value)}
-                                        className={`p-3 border rounded-lg cursor-pointer transition-colors ${answers[currentQuestion.id] === option.value
-                                            ? 'bg-primary text-primary-foreground'
-                                            : 'hover:bg-muted'
-                                            }`}
-                                    >
-                                        {option.label}. {option.text}
-                                    </div>
-                                ))}
+                            <div className="text-sm text-muted-foreground mb-4">
+                                {currentQuestion.type === 0 && '单选题'}
+                                {currentQuestion.type === 1 && '多选题 (可选择多个答案)'}
+                                {currentQuestion.type === 2 && '判断题'}
+                                {currentQuestion.type === 3 && '填空题'}
                             </div>
+
+                            {renderQuestionOptions()}
                         </CardContent>
                         <CardFooter className="flex justify-between">
                             <Button
