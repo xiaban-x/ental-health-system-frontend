@@ -42,10 +42,10 @@ interface AppointmentRecord {
     counselorName: string;
     startTime: string;
     endTime: string;
-    status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+    status: 'pending' | 'approved' | 'confirmed' | 'completed' | 'cancelled' | 'rejected';
     reason: string;
     notes: string;
-    createTime: string;
+    createdAt: string;
 }
 
 export default function StudentHistory() {
@@ -61,7 +61,7 @@ export default function StudentHistory() {
 
     // 使用SWR获取咨询历史
     const { data: appointments, error: appointmentsError, isLoading: appointmentsLoading } =
-        useApi<AppointmentRecord[]>('/appointment/history');
+        useApi<AppointmentRecord[]>('/appointment/my-appointments');
 
     useEffect(() => {
         // 检查用户是否已登录
@@ -117,13 +117,17 @@ export default function StudentHistory() {
     const renderAppointmentStatus = (status: string) => {
         switch (status) {
             case 'pending':
-                return <span className="text-yellow-500">等待确认</span>;
+                return <span className="text-yellow-500">待确认</span>;
             case 'confirmed':
                 return <span className="text-green-500">已确认</span>;
+            case 'approved':
+                return <span className="text-green-500">已同意</span>;
             case 'completed':
                 return <span className="text-blue-500">已完成</span>;
             case 'cancelled':
                 return <span className="text-red-500">已取消</span>;
+            case 'rejected':
+                return <span className="text-red-500">已拒绝</span>;
             default:
                 return <span>{status}</span>;
         }
@@ -261,7 +265,7 @@ export default function StudentHistory() {
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="font-medium">状态: {renderAppointmentStatus(record.status)}</p>
-                                                    <p className="text-sm">预约于: {formatDate(record.createTime)}</p>
+                                                    <p className="text-sm">预约于: {formatDate(record.createdAt)}</p>
                                                 </div>
                                             </div>
                                         </CardHeader>
