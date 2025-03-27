@@ -255,9 +255,7 @@ export default function StudentHistory() {
 
                                 {/* 分页控件 */}
                                 <div className="mt-6 flex justify-between items-center">
-                                    <div className="text-sm text-muted-foreground">
-                                        共 {assessmentData?.total || 0} 条记录
-                                    </div>
+                                    <div className="text-sm text-muted-foreground whitespace-nowrap">共 {assessmentData?.total || 0} 条记录</div>
                                     <Pagination>
                                         <PaginationContent>
                                             <PaginationItem>
@@ -360,9 +358,7 @@ export default function StudentHistory() {
 
                                 {/* 分页控件 */}
                                 <div className="mt-6 flex justify-between items-center">
-                                    <div className="text-sm text-muted-foreground">
-                                        共 {appointmentData?.total || 0} 条记录
-                                    </div>
+                                    <div className="text-sm text-muted-foreground whitespace-nowrap">共 {appointmentData?.total || 0} 条记录</div>
                                     <Pagination>
                                         <PaginationContent>
                                             <PaginationItem>
