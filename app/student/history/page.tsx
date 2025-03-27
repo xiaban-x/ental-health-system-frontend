@@ -52,14 +52,22 @@ export default function StudentHistory() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<'assessments' | 'appointments'>('assessments');
 
-    // 添加分页状态
+    // 评估历史分页状态
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
 
+    // 咨询历史分页状态
+    const [appointmentCurrentPage, setAppointmentCurrentPage] = useState(1);
+    const [appointmentPageSize, setAppointmentPageSize] = useState(10);
+    const [appointmentTotalPages, setAppointmentTotalPages] = useState(1);
+
     // 使用SWR获取咨询历史
-    const { data: appointments, error: appointmentsError, isLoading: appointmentsLoading } =
-        useApi<AppointmentRecord[]>('/appointment/my-appointments');
+    const { data: appointmentData, error: appointmentsError, isLoading: appointmentsLoading } =
+        useApi<PaginatedResponse<AppointmentRecord>>(`/appointment/my-appointments?page=${appointmentCurrentPage}&size=${appointmentPageSize}`);
+
+    // 从SWR响应中提取咨询记录
+    const appointments = appointmentData?.list || [];
 
     // 使用SWR获取评估历史
     const { data: assessmentData, error: assessmentError, isLoading: assessmentLoading } =
@@ -78,11 +86,16 @@ export default function StudentHistory() {
             return;
         }
 
-        // 更新总页数
+        // 更新评估历史总页数
         if (assessmentData) {
             setTotalPages(assessmentData.totalPage || 1);
         }
-    }, [router, assessmentData]);
+
+        // 更新咨询历史总页数
+        if (appointmentData) {
+            setAppointmentTotalPages(appointmentData.totalPage || 1);
+        }
+    }, [router, assessmentData, appointmentData]);
 
     // 处理评估历史加载错误
     useEffect(() => {
@@ -94,15 +107,36 @@ export default function StudentHistory() {
         }
     }, [assessmentError]);
 
+    // 处理咨询历史加载错误
+    useEffect(() => {
+        if (appointmentsError) {
+            toast.error('获取咨询历史失败', {
+                description: '服务器错误，请稍后再试',
+                position: 'top-center',
+            });
+        }
+    }, [appointmentsError]);
+
     const handlePageChange = (page: number) => {
         setCurrentPage(page);
     };
 
-    // 处理页面大小变化
+    const handleAppointmentPageChange = (page: number) => {
+        setAppointmentCurrentPage(page);
+    };
+
+    // 处理评估历史页面大小变化
     const handlePageSizeChange = (value: string) => {
         const newSize = parseInt(value);
         setPageSize(newSize);
         setCurrentPage(1); // 重置到第一页
+    };
+
+    // 处理咨询历史页面大小变化
+    const handleAppointmentPageSizeChange = (value: string) => {
+        const newSize = parseInt(value);
+        setAppointmentPageSize(newSize);
+        setAppointmentCurrentPage(1); // 重置到第一页
     };
 
     const renderAppointmentStatus = (status: string) => {
@@ -258,7 +292,26 @@ export default function StudentHistory() {
                     </div>
                 ) : (
                     <div>
-                        <h2 className="text-xl font-semibold mb-4">咨询历史</h2>
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-semibold">咨询历史</h2>
+                            <div className="flex items-center space-x-2">
+                                <span className="text-sm text-muted-foreground">每页显示:</span>
+                                <Select
+                                    value={appointmentPageSize.toString()}
+                                    onValueChange={handleAppointmentPageSizeChange}
+                                >
+                                    <SelectTrigger className="w-[80px]">
+                                        <SelectValue placeholder="10" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="5">5</SelectItem>
+                                        <SelectItem value="10">10</SelectItem>
+                                        <SelectItem value="20">20</SelectItem>
+                                        <SelectItem value="50">50</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
 
                         {appointmentsLoading ? (
                             <div className="flex justify-center p-12">
@@ -269,40 +322,77 @@ export default function StudentHistory() {
                                 <p className="text-lg text-destructive">加载咨询历史失败</p>
                             </div>
                         ) : appointments && appointments.length > 0 ? (
-                            <div className="space-y-4">
-                                {appointments.map(record => (
-                                    <Card key={record.id}>
-                                        <CardHeader>
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <CardTitle>咨询师: {record.counselorName}</CardTitle>
-                                                    <CardDescription>
-                                                        咨询时间: {formatDate(record.startTime)}
-                                                    </CardDescription>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="font-medium">状态: {renderAppointmentStatus(record.status)}</p>
-                                                    <p className="text-sm">预约于: {formatDate(record.createdAt)}</p>
-                                                </div>
-                                            </div>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <div className="space-y-2">
-                                                <div>
-                                                    <p className="font-medium">咨询原因:</p>
-                                                    <p className="text-sm">{record.reason}</p>
-                                                </div>
-                                                {record.notes && (
+                            <>
+                                <div className="space-y-4">
+                                    {appointments.map(record => (
+                                        <Card key={record.id}>
+                                            <CardHeader>
+                                                <div className="flex justify-between items-start">
                                                     <div>
-                                                        <p className="font-medium">咨询记录:</p>
-                                                        <p className="text-sm whitespace-pre-line">{record.notes}</p>
+                                                        <CardTitle>咨询师: {record.counselorName}</CardTitle>
+                                                        <CardDescription>
+                                                            咨询时间: {formatDate(record.startTime)}
+                                                        </CardDescription>
                                                     </div>
-                                                )}
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
-                            </div>
+                                                    <div className="text-right">
+                                                        <p className="font-medium">状态: {renderAppointmentStatus(record.status)}</p>
+                                                        <p className="text-sm">预约于: {formatDate(record.createdAt)}</p>
+                                                    </div>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="space-y-2">
+                                                    <div>
+                                                        <p className="font-medium">咨询原因:</p>
+                                                        <p className="text-sm">{record.reason}</p>
+                                                    </div>
+                                                    {record.notes && (
+                                                        <div>
+                                                            <p className="font-medium">咨询记录:</p>
+                                                            <p className="text-sm whitespace-pre-line">{record.notes}</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+
+                                {/* 分页控件 */}
+                                <div className="mt-6 flex justify-between items-center">
+                                    <div className="text-sm text-muted-foreground">
+                                        共 {appointmentData?.total || 0} 条记录
+                                    </div>
+                                    <Pagination>
+                                        <PaginationContent>
+                                            <PaginationItem>
+                                                <PaginationPrevious
+                                                    onClick={() => appointmentCurrentPage > 1 && handleAppointmentPageChange(appointmentCurrentPage - 1)}
+                                                    className={appointmentCurrentPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                                />
+                                            </PaginationItem>
+
+                                            {Array.from({ length: appointmentTotalPages }, (_, i) => i + 1).map((page) => (
+                                                <PaginationItem key={page}>
+                                                    <PaginationLink
+                                                        isActive={appointmentCurrentPage === page}
+                                                        onClick={() => handleAppointmentPageChange(page)}
+                                                    >
+                                                        {page}
+                                                    </PaginationLink>
+                                                </PaginationItem>
+                                            ))}
+
+                                            <PaginationItem>
+                                                <PaginationNext
+                                                    onClick={() => appointmentCurrentPage < appointmentTotalPages && handleAppointmentPageChange(appointmentCurrentPage + 1)}
+                                                    className={appointmentCurrentPage >= appointmentTotalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                                />
+                                            </PaginationItem>
+                                        </PaginationContent>
+                                    </Pagination>
+                                </div>
+                            </>
                         ) : (
                             <div className="text-center p-12 bg-white rounded-lg shadow">
                                 <p className="text-lg mb-4">暂无咨询历史记录</p>
