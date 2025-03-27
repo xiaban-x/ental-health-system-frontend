@@ -8,6 +8,8 @@ import { useApi } from '@/app/_lib/api-client';
 import { apiClient } from '@/app/_lib/api-client';
 import { formatDate, formatDateTime } from '@/app/_lib/utils';
 import { toast } from 'sonner';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/app/_components/ui/pagination';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/_components/ui/select';
 
 interface Counselor {
     id: number;
@@ -39,6 +41,13 @@ interface Appointment {
     createdAt: string;
 }
 
+interface PaginatedResponse<T> {
+    list: T[];
+    total: number;
+    totalPage: number;
+    currentPage: number;
+}
+
 export default function StudentCounseling() {
     const router = useRouter();
     const [step, setStep] = useState<'list' | 'select-time' | 'confirm' | 'my-appointments'>('list');
@@ -47,13 +56,21 @@ export default function StudentCounseling() {
     const [reason, setReason] = useState('');
     const [loading, setLoading] = useState(false);
 
+    // 分页状态
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const [totalPages, setTotalPages] = useState(1);
+
     // 使用SWR获取咨询师列表
     const { data: counselors, error: counselorsError, isLoading: counselorsLoading } =
         useApi<Counselor[]>('/counselor/list');
 
-    // 使用SWR获取我的预约列表
-    const { data: appointments, error: appointmentsError, isLoading: appointmentsLoading, mutate: refreshAppointments } =
-        useApi<Appointment[]>('/appointment/my-appointments');
+    // 使用SWR获取我的预约列表（带分页）
+    const { data: appointmentData, error: appointmentsError, isLoading: appointmentsLoading, mutate: refreshAppointments } =
+        useApi<PaginatedResponse<Appointment>>(`/appointment/my-appointments?page=${currentPage}&size=${pageSize}`);
+
+    // 从SWR响应中提取预约记录
+    const appointments = appointmentData?.list || [];
 
     // 获取可用时间段
     const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
@@ -67,7 +84,12 @@ export default function StudentCounseling() {
         if (!token || role !== 'student') {
             router.push('/auth/login');
         }
-    }, [router]);
+
+        // 更新总页数
+        if (appointmentData) {
+            setTotalPages(appointmentData.totalPage || 1);
+        }
+    }, [router, appointmentData]);
 
     const fetchTimeSlots = async (counselorId: number) => {
         setTimeSlotsLoading(true);
@@ -170,16 +192,30 @@ export default function StudentCounseling() {
     const renderAppointmentStatus = (status: string) => {
         switch (status) {
             case 'pending':
-                return <span className="text-yellow-500">等待确认</span>;
-            case 'approved':
+                return <span className="text-yellow-500">待确认</span>;
+            case 'confirmed':
                 return <span className="text-green-500">已确认</span>;
+            case 'approved':
+                return <span className="text-green-500">已同意</span>;
             case 'completed':
                 return <span className="text-blue-500">已完成</span>;
             case 'cancelled':
                 return <span className="text-red-500">已取消</span>;
+            case 'rejected':
+                return <span className="text-red-500">已拒绝</span>;
             default:
                 return <span>{status}</span>;
         }
+    };
+
+    const handlePageChange = (page: number) => {
+        setCurrentPage(page);
+    };
+
+    const handlePageSizeChange = (value: string) => {
+        const newSize = parseInt(value);
+        setPageSize(newSize);
+        setCurrentPage(1); // 重置到第一页
     };
 
     // 显示我的预约列表
@@ -199,6 +235,27 @@ export default function StudentCounseling() {
                         </div>
                     </div>
 
+                    <div className="flex justify-between items-center mb-4">
+                        <div></div>
+                        <div className="flex items-center space-x-2">
+                            <span className="text-sm text-muted-foreground">每页显示:</span>
+                            <Select
+                                value={pageSize.toString()}
+                                onValueChange={handlePageSizeChange}
+                            >
+                                <SelectTrigger className="w-[80px]">
+                                    <SelectValue placeholder="10" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="5">5</SelectItem>
+                                    <SelectItem value="10">10</SelectItem>
+                                    <SelectItem value="20">20</SelectItem>
+                                    <SelectItem value="50">50</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
                     {appointmentsLoading ? (
                         <div className="flex justify-center p-12">
                             <p className="text-lg">加载中...</p>
@@ -208,51 +265,86 @@ export default function StudentCounseling() {
                             <p className="text-lg text-destructive">加载预约失败</p>
                         </div>
                     ) : appointments && appointments.length > 0 ? (
-                        <div className="space-y-4">
-                            {appointments.map(appointment => (
-                                <Card key={appointment.id}>
-                                    <CardHeader>
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <CardTitle>咨询师: {appointment.counselorName}</CardTitle>
-                                                <CardDescription>
-                                                    预约时间: {formatDateTime(appointment.startTime)} - {new Date(appointment.endTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
-                                                </CardDescription>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="font-medium">状态: {renderAppointmentStatus(appointment.status)}</p>
-                                                <p className="text-sm text-muted-foreground">预约于: {appointment.createdAt}</p>
-                                            </div>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-2">
-                                            <div>
-                                                <p className="font-medium">咨询原因:</p>
-                                                <p>{appointment.reason}</p>
-                                            </div>
-                                            {appointment.notes && (
+                        <>
+                            <div className="space-y-4">
+                                {appointments.map(appointment => (
+                                    <Card key={appointment.id}>
+                                        <CardHeader>
+                                            <div className="flex justify-between items-start">
                                                 <div>
-                                                    <p className="font-medium">咨询记录:</p>
-                                                    <p>{appointment.notes}</p>
+                                                    <CardTitle>咨询师: {appointment.counselorName}</CardTitle>
+                                                    <CardDescription>
+                                                        预约时间: {formatDateTime(appointment.startTime)} - {new Date(appointment.endTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+                                                    </CardDescription>
                                                 </div>
+                                                <div className="text-right">
+                                                    <p className="font-medium">状态: {renderAppointmentStatus(appointment.status)}</p>
+                                                    <p className="text-sm text-muted-foreground">预约于: {appointment.createdAt}</p>
+                                                </div>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="space-y-2">
+                                                <div>
+                                                    <p className="font-medium">咨询原因:</p>
+                                                    <p>{appointment.reason}</p>
+                                                </div>
+                                                {appointment.notes && (
+                                                    <div>
+                                                        <p className="font-medium">咨询记录:</p>
+                                                        <p>{appointment.notes}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </CardContent>
+                                        <CardFooter>
+                                            {(appointment.status === 'pending' || appointment.status === 'confirmed') && (
+                                                <Button
+                                                    variant="destructive"
+                                                    onClick={() => handleCancelAppointment(appointment.id)}
+                                                    disabled={loading}
+                                                >
+                                                    {loading ? '取消中...' : '取消预约'}
+                                                </Button>
                                             )}
-                                        </div>
-                                    </CardContent>
-                                    <CardFooter>
-                                        {(appointment.status === 'pending' || appointment.status === 'confirmed') && (
-                                            <Button
-                                                variant="destructive"
-                                                onClick={() => handleCancelAppointment(appointment.id)}
-                                                disabled={loading}
-                                            >
-                                                {loading ? '取消中...' : '取消预约'}
-                                            </Button>
-                                        )}
-                                    </CardFooter>
-                                </Card>
-                            ))}
-                        </div>
+                                        </CardFooter>
+                                    </Card>
+                                ))}
+                            </div>
+
+                            {/* 分页控件 */}
+                            <div className="mt-6 flex justify-between items-center w-full">
+                                <div className="text-sm text-muted-foreground whitespace-nowrap">共 {appointmentData?.total || 0} 条记录</div>
+                                <Pagination>
+                                    <PaginationContent>
+                                        <PaginationItem>
+                                            <PaginationPrevious
+                                                onClick={() => currentPage > 1 && handlePageChange(currentPage - 1)}
+                                                className={currentPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                            />
+                                        </PaginationItem>
+
+                                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                                            <PaginationItem key={page}>
+                                                <PaginationLink
+                                                    isActive={currentPage === page}
+                                                    onClick={() => handlePageChange(page)}
+                                                >
+                                                    {page}
+                                                </PaginationLink>
+                                            </PaginationItem>
+                                        ))}
+
+                                        <PaginationItem>
+                                            <PaginationNext
+                                                onClick={() => currentPage < totalPages && handlePageChange(currentPage + 1)}
+                                                className={currentPage >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                            />
+                                        </PaginationItem>
+                                    </PaginationContent>
+                                </Pagination>
+                            </div>
+                        </>
                     ) : (
                         <div className="text-center p-12 bg-white rounded-lg shadow">
                             <p className="text-lg mb-4">您还没有任何咨询预约</p>
