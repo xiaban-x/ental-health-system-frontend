@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/_components/ui/card';
 import { Button } from '@/app/_components/ui/button';
 import { useApi } from '@/app/_lib/api-client';
-import { apiClient } from '@/app/_lib/api-client';
 import { formatDate } from '@/app/_lib/utils';
 import { toast } from 'sonner';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/app/_components/ui/pagination';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/_components/ui/select';
 
 // 更新评估记录接口以匹配后端
 interface AssessmentRecord {
@@ -55,13 +55,18 @@ export default function StudentHistory() {
     // 添加分页状态
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
-    const [assessmentRecords, setAssessmentRecords] = useState<AssessmentRecordResult[]>([]);
     const [totalPages, setTotalPages] = useState(1);
-    const [loading, setLoading] = useState(false);
 
     // 使用SWR获取咨询历史
     const { data: appointments, error: appointmentsError, isLoading: appointmentsLoading } =
         useApi<AppointmentRecord[]>('/appointment/my-appointments');
+
+    // 使用SWR获取评估历史
+    const { data: assessmentData, error: assessmentError, isLoading: assessmentLoading } =
+        useApi<PaginatedResponse<AssessmentRecordResult>>(`/exam-records?page=${currentPage}&size=${pageSize}`);
+
+    // 从SWR响应中提取评估记录
+    const assessmentRecords = assessmentData?.list || [];
 
     useEffect(() => {
         // 检查用户是否已登录
@@ -73,45 +78,31 @@ export default function StudentHistory() {
             return;
         }
 
-        // 如果当前标签是评估历史，则加载评估历史
-        if (activeTab === 'assessments') {
-            fetchAssessmentHistory();
+        // 更新总页数
+        if (assessmentData) {
+            setTotalPages(assessmentData.totalPage || 1);
         }
-    }, [router, activeTab, currentPage, pageSize]);
+    }, [router, assessmentData]);
 
-    // 获取评估历史记录
-    const fetchAssessmentHistory = async () => {
-        setLoading(true);
-        try {
-            const response = await apiClient.get<PaginatedResponse<AssessmentRecordResult>>('/exam-records', {
-                params: {
-                    page: currentPage,
-                    size: pageSize,
-                }
-            });
-            if (response.code === 0 && response.data) {
-                const paginatedData = response.data;
-                setAssessmentRecords(paginatedData.list || []);
-                setTotalPages(paginatedData.totalPage || 1);
-            } else {
-                toast.error('获取评估历史失败', {
-                    description: response.msg || '无法加载评估历史',
-                    position: 'top-center',
-                });
-            }
-        } catch (error) {
-            console.error('获取评估历史错误:', error);
+    // 处理评估历史加载错误
+    useEffect(() => {
+        if (assessmentError) {
             toast.error('获取评估历史失败', {
                 description: '服务器错误，请稍后再试',
                 position: 'top-center',
             });
-        } finally {
-            setLoading(false);
         }
-    };
+    }, [assessmentError]);
 
     const handlePageChange = (page: number) => {
         setCurrentPage(page);
+    };
+
+    // 处理页面大小变化
+    const handlePageSizeChange = (value: string) => {
+        const newSize = parseInt(value);
+        setPageSize(newSize);
+        setCurrentPage(1); // 重置到第一页
     };
 
     const renderAppointmentStatus = (status: string) => {
@@ -160,11 +151,34 @@ export default function StudentHistory() {
 
                 {activeTab === 'assessments' ? (
                     <div>
-                        <h2 className="text-xl font-semibold mb-4">评估历史</h2>
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-semibold">评估历史</h2>
+                            <div className="flex items-center space-x-2">
+                                <span className="text-sm text-muted-foreground">每页显示:</span>
+                                <Select
+                                    value={pageSize.toString()}
+                                    onValueChange={handlePageSizeChange}
+                                >
+                                    <SelectTrigger className="w-[80px]">
+                                        <SelectValue placeholder="10" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="5">5</SelectItem>
+                                        <SelectItem value="10">10</SelectItem>
+                                        <SelectItem value="20">20</SelectItem>
+                                        <SelectItem value="50">50</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
 
-                        {loading ? (
+                        {assessmentLoading ? (
                             <div className="flex justify-center p-12">
                                 <p className="text-lg">加载中...</p>
+                            </div>
+                        ) : assessmentError ? (
+                            <div className="text-center p-12">
+                                <p className="text-lg text-destructive">加载评估历史失败</p>
                             </div>
                         ) : assessmentRecords.length === 0 ? (
                             <div className="text-center p-12 bg-white rounded-lg shadow">
@@ -206,7 +220,10 @@ export default function StudentHistory() {
                                 </div>
 
                                 {/* 分页控件 */}
-                                <div className="mt-6">
+                                <div className="mt-6 flex justify-between items-center">
+                                    <div className="text-sm text-muted-foreground">
+                                        共 {assessmentData?.total || 0} 条记录
+                                    </div>
                                     <Pagination>
                                         <PaginationContent>
                                             <PaginationItem>
