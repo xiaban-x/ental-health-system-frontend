@@ -10,6 +10,12 @@ import { toast } from 'sonner';
 import ResourceForm from './ResourceForm';
 import ChunkUploader from './ChunkUploader';
 
+// 文件上传响应数据类型
+interface FileUploadData {
+    url: string;
+    fileName: string;
+}
+
 interface VideoUploaderProps {
     onCancel: () => void;
     onSuccess: () => void;
@@ -26,26 +32,26 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
     const [loading, setLoading] = useState(false);
     const [videoFile, setVideoFile] = useState<File | null>(null);
     const [uploadComplete, setUploadComplete] = useState(false);
-    
+
     // 处理表单变化
     const handleFormChange = (name: string, value: string | number) => {
         setVideoForm(prev => ({ ...prev, [name]: value }));
     };
-    
+
     // 上传封面图片
     const handleUploadCover = async (file: File) => {
         const formData = new FormData();
         formData.append('file', file);
-        
+
         try {
-            const response = await apiClient.post('/minio/upload', formData, {
+            const response = await apiClient.post<FileUploadData>('/minio/upload', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }
             });
-            
-            if (response.code === 0) {
-                setVideoForm(prev => ({ ...prev, coverImage: response.data.url }));
+
+            if (response.code === 0 && response.data) {
+                setVideoForm(prev => ({ ...prev, coverImage: response.data!.url }));
                 return response.data.url;
             } else {
                 toast.error('封面上传失败', {
@@ -61,30 +67,30 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
             return null;
         }
     };
-    
+
     // 处理视频文件选择
     const handleVideoFileSelect = (file: File) => {
         setVideoFile(file);
-        
+
         // 创建视频元素来获取时长
         const video = document.createElement('video');
         video.preload = 'metadata';
-        
+
         video.onloadedmetadata = () => {
             window.URL.revokeObjectURL(video.src);
             const durationInSeconds = Math.round(video.duration);
             setVideoForm(prev => ({ ...prev, duration: durationInSeconds }));
         };
-        
+
         video.src = URL.createObjectURL(file);
     };
-    
+
     // 处理上传完成
     const handleUploadComplete = (url: string) => {
         setVideoForm(prev => ({ ...prev, url }));
         setUploadComplete(true);
     };
-    
+
     // 提交视频资源
     const handleSubmit = async () => {
         if (!videoForm.title.trim() || !videoForm.description.trim() || !videoForm.url) {
@@ -93,10 +99,10 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
             });
             return;
         }
-        
+
         setLoading(true);
         try {
-            const response = await apiClient.post('/resource/create', {
+            const response = await apiClient.post('/resource', {
                 title: videoForm.title,
                 description: videoForm.description,
                 url: videoForm.url,
@@ -104,7 +110,7 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
                 duration: videoForm.duration,
                 coverImage: videoForm.coverImage || null
             });
-            
+
             if (response.code === 0) {
                 onSuccess();
             } else {
@@ -121,7 +127,7 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
             setLoading(false);
         }
     };
-    
+
     return (
         <Card>
             <CardHeader>
@@ -129,7 +135,7 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
                 <CardDescription>上传新的视频资源</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <ResourceForm 
+                <ResourceForm
                     formData={{
                         title: videoForm.title,
                         description: videoForm.description,
@@ -138,7 +144,7 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
                     onChange={handleFormChange}
                     onUploadCover={handleUploadCover}
                 />
-                
+
                 <div className="space-y-2">
                     <Label htmlFor="duration">视频时长 (秒)</Label>
                     <Input
@@ -150,11 +156,11 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
                         disabled={!!videoFile}
                     />
                 </div>
-                
+
                 <div className="space-y-2">
                     <Label>视频文件</Label>
                     {!videoFile ? (
-                        <ChunkUploader 
+                        <ChunkUploader
                             onFileSelect={handleVideoFileSelect}
                             onUploadComplete={handleUploadComplete}
                         />
@@ -162,8 +168,8 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
                         <div className="flex flex-col space-y-2 p-4 border rounded-md">
                             <p className="font-medium">{videoFile.name}</p>
                             <p className="text-sm text-muted-foreground">
-                                大小: {(videoFile.size / (1024 * 1024)).toFixed(2)} MB | 
-                                类型: {videoFile.type} | 
+                                大小: {(videoFile.size / (1024 * 1024)).toFixed(2)} MB |
+                                类型: {videoFile.type} |
                                 时长: {Math.floor(videoForm.duration / 60)}分{videoForm.duration % 60}秒
                             </p>
                             {uploadComplete ? (
@@ -175,8 +181,8 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
                                     <span>上传完成</span>
                                 </div>
                             ) : (
-                                <Button 
-                                    variant="outline" 
+                                <Button
+                                    variant="outline"
                                     size="sm"
                                     onClick={() => {
                                         setVideoFile(null);
@@ -195,8 +201,8 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
                 <Button variant="outline" onClick={onCancel}>
                     取消
                 </Button>
-                <Button 
-                    onClick={handleSubmit} 
+                <Button
+                    onClick={handleSubmit}
                     disabled={loading || !uploadComplete || !videoForm.title || !videoForm.description}
                 >
                     {loading ? '提交中...' : '发布视频'}
