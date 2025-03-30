@@ -11,7 +11,7 @@ import dynamic from 'next/dynamic';
 
 // 动态导入编辑器组件，禁用 SSR
 const TipTapEditor = dynamic(
-    () => import('@/app/teacher/_components/editor/TipTapEditor').then(mod => mod.TipTapEditor),
+    () => import('@/app/teacher/_components/editor/TipTapEditor'),
     {
         ssr: false,
         loading: () => <div className="min-h-[400px] border rounded-md p-4 flex items-center justify-center">
@@ -50,6 +50,7 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
         formData.append('file', file);
 
         try {
+            toast.loading('正在上传封面...');
             const response = await apiClient.post<{ url: string; filename: string }>('/minio/upload', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
@@ -58,6 +59,7 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
 
             if (response.code === 0) {
                 setArticleForm(prev => ({ ...prev, coverImage: response.data!.url }));
+                toast.success('封面上传成功');
                 return response.data!.url;
             } else {
                 toast.error('封面上传失败', {
@@ -85,6 +87,7 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
 
         setLoading(true);
         try {
+            toast.loading('正在提交文章...');
             const response = await apiClient.post('/resource', {
                 title: articleForm.title,
                 description: articleForm.description,
@@ -94,6 +97,7 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
             });
 
             if (response.code === 0) {
+                toast.success('文章创建成功');
                 onSuccess();
             } else {
                 toast.error('文章创建失败', {
@@ -111,7 +115,7 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
     };
 
     return (
-        <Card>
+        <Card className="w-full">
             <CardHeader>
                 <CardTitle>新增文章</CardTitle>
                 <CardDescription>创建新的文章资源</CardDescription>
