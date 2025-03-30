@@ -25,10 +25,10 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
     const [loading, setLoading] = useState(false);
     const [editorLoaded, setEditorLoaded] = useState(false);
     const [editor, setEditor] = useState<any>(null);
-    
+
     // 编辑器引用
     const editorRef = useRef<HTMLDivElement>(null);
-    
+
     // 初始化编辑器
     useEffect(() => {
         // 动态加载编辑器
@@ -48,7 +48,7 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
                 toast.error('加载编辑器失败');
             });
         }
-        
+
         // 清理函数
         return () => {
             if (editor && editor.destroy) {
@@ -56,27 +56,27 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
             }
         };
     }, []);
-    
+
     // 处理表单变化
     const handleFormChange = (name: string, value: string) => {
         setArticleForm(prev => ({ ...prev, [name]: value }));
     };
-    
+
     // 上传封面图片
     const handleUploadCover = async (file: File) => {
         const formData = new FormData();
         formData.append('file', file);
-        
+
         try {
-            const response = await apiClient.post('/minio/upload', formData, {
+            const response = await apiClient.post<{ url: string; filename: string }>('/minio/upload', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }
             });
-            
+
             if (response.code === 0) {
-                setArticleForm(prev => ({ ...prev, coverImage: response.data.url }));
-                return response.data.url;
+                setArticleForm(prev => ({ ...prev, coverImage: response.data!.url }));
+                return response.data!.url;
             } else {
                 toast.error('封面上传失败', {
                     description: response.msg || '服务器错误',
@@ -91,7 +91,7 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
             return null;
         }
     };
-    
+
     // 提交文章
     const handleSubmit = async () => {
         if (!articleForm.title.trim() || !articleForm.description.trim() || !articleForm.content.trim()) {
@@ -100,7 +100,7 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
             });
             return;
         }
-        
+
         setLoading(true);
         try {
             const response = await apiClient.post('/resource/create', {
@@ -110,7 +110,7 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
                 type: 'article',
                 coverImage: articleForm.coverImage || null
             });
-            
+
             if (response.code === 0) {
                 onSuccess();
             } else {
@@ -127,7 +127,7 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
             setLoading(false);
         }
     };
-    
+
     return (
         <Card>
             <CardHeader>
@@ -135,7 +135,7 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
                 <CardDescription>创建新的文章资源</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <ResourceForm 
+                <ResourceForm
                     formData={{
                         title: articleForm.title,
                         description: articleForm.description,
@@ -144,11 +144,11 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
                     onChange={handleFormChange}
                     onUploadCover={handleUploadCover}
                 />
-                
+
                 <div className="space-y-2">
                     <Label htmlFor="content">文章内容</Label>
-                    <div 
-                        ref={editorRef} 
+                    <div
+                        ref={editorRef}
                         className="min-h-[400px] border rounded-md p-4"
                     >
                         {!editorLoaded && <p>加载编辑器中...</p>}

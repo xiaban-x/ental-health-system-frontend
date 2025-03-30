@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/app/_components/ui/button';
 import { Progress } from '@/app/_components/ui/progress';
 import { apiClient } from '@/app/_lib/api-client';
@@ -22,12 +22,28 @@ interface ChunkUploadState {
 interface ChunkUploaderProps {
     onFileSelect: (file: File) => void;
     onUploadComplete: (url: string) => void;
+    onUploadError?: () => void;
+    initialFile?: File | null;
 }
 
-export default function ChunkUploader({ onFileSelect, onUploadComplete }: ChunkUploaderProps) {
+export default function ChunkUploader({ onFileSelect, onUploadComplete, onUploadError, initialFile }: ChunkUploaderProps) {
     const [uploadState, setUploadState] = useState<ChunkUploadState | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const uploadedChunksRef = useRef(new Set<number>());
+    
+    // 使用useEffect处理initialFile
+    useEffect(() => {
+        if (initialFile && !isUploading && !uploadState) {
+            startChunkUpload(initialFile);
+        }
+    }, [initialFile]);
+    
+    // 添加useEffect来监听状态变化
+    useEffect(() => {
+        console.log("uploadState ===>", uploadState);
+        console.log("isUploading ===>", isUploading);
+    }, [uploadState, isUploading]);
 
     // 生成相对路径，按年月和类型分类
     const generateRelativePath = (fileType: string) => {
@@ -81,16 +97,16 @@ export default function ChunkUploader({ onFileSelect, onUploadComplete }: ChunkU
         try {
             // 先检查分片是否存在
             const checkResponse = await apiClient.post<{ exist: boolean }>('/minio/chunk/check', formData);
-            // 判断分片是否存在，注意检查 data.exists 字段
             const chunkExists = checkResponse.code === 0 && checkResponse.data && checkResponse.data.exist;
 
             if (chunkExists) {
                 console.log(`分片 ${chunkNumber} 已存在，跳过上传`);
-                // 分片已存在，标记为已上传
+                // 更新本地ref
+                uploadedChunksRef.current.add(chunkNumber);
+                // 更新React状态
                 setUploadState(prev => {
                     if (!prev) return null;
-                    const newUploadedChunks = new Set(prev.uploadedChunks);
-                    newUploadedChunks.add(chunkNumber);
+                    const newUploadedChunks = new Set([...prev.uploadedChunks, chunkNumber]);
                     const progress = Math.round((newUploadedChunks.size / prev.totalChunks) * 100);
                     return {
                         ...prev,
@@ -107,11 +123,14 @@ export default function ChunkUploader({ onFileSelect, onUploadComplete }: ChunkU
                     'Content-Type': 'multipart/form-data'
                 }
             });
+            
             if (uploadResponse.code === 0) {
+                // 更新本地ref
+                uploadedChunksRef.current.add(chunkNumber);
+                // 更新React状态
                 setUploadState(prev => {
                     if (!prev) return null;
-                    const newUploadedChunks = new Set(prev.uploadedChunks);
-                    newUploadedChunks.add(chunkNumber);
+                    const newUploadedChunks = new Set([...prev.uploadedChunks, chunkNumber]);
                     const progress = Math.round((newUploadedChunks.size / prev.totalChunks) * 100);
                     return {
                         ...prev,
@@ -147,6 +166,8 @@ export default function ChunkUploader({ onFileSelect, onUploadComplete }: ChunkU
         } catch (error) {
             console.error('合并分片错误:', error);
             setUploadState(prev => prev ? { ...prev, status: 'error' } : null);
+            // 调用错误回调
+            if (onUploadError) onUploadError();
             throw error;
         }
     };
@@ -155,11 +176,20 @@ export default function ChunkUploader({ onFileSelect, onUploadComplete }: ChunkU
     const startChunkUpload = async (file: File) => {
         if (isUploading) return;
 
+        // 重置上传状态
+        uploadedChunksRef.current = new Set<number>();
         setIsUploading(true);
+        
         try {
             onFileSelect(file);
-            const { identifier, totalChunks, chunkSize, relativePath } = prepareChunkUpload(file);
-            // 确保在开始上传前设置状态
+            
+            // 设置初始状态
+            const chunkSize = 1024 * 1024 * 5; // 5MB
+            const totalChunks = Math.ceil(file.size / chunkSize);
+            const identifier = `${file.name}-${file.size}`;
+            const relativePath = generateRelativePath(file.type);
+            
+            // 立即设置状态
             setUploadState({
                 identifier,
                 filename: file.name,
@@ -171,12 +201,10 @@ export default function ChunkUploader({ onFileSelect, onUploadComplete }: ChunkU
                 progress: 0,
                 file
             });
-
+            
             // 并发上传分片，最多5个并发
             const concurrency = 5;
             let currentChunk = 1;
-            // 使用本地变量跟踪已上传的分片
-            const uploadedChunks = new Set<number>();
 
             const uploadNextChunk = async () => {
                 if (currentChunk > totalChunks) return;
@@ -187,17 +215,18 @@ export default function ChunkUploader({ onFileSelect, onUploadComplete }: ChunkU
                 const chunk = file.slice(start, end);
 
                 const success = await uploadChunk(chunk, chunkNumber, identifier, file, totalChunks, relativePath);
-
-                if (success) {
-                    // 使用本地变量跟踪上传进度
-                    uploadedChunks.add(chunkNumber);
-
-                    // 检查是否所有分片都已上传
-                    if (uploadedChunks.size === totalChunks) {
+                
+                // 使用ref检查是否所有分片都已上传
+                if (uploadedChunksRef.current.size === totalChunks) {
+                    try {
                         const fileUrl = await mergeChunks(identifier, file.name, totalChunks, relativePath);
+                        setUploadState(prev => prev ? { ...prev, status: 'completed' } : null);
                         onUploadComplete(fileUrl);
-                        return;
+                    } catch (error) {
+                        console.error('合并分片错误:', error);
+                        setUploadState(prev => prev ? { ...prev, status: 'error' } : null);
                     }
+                    return;
                 }
 
                 await uploadNextChunk();
@@ -205,7 +234,7 @@ export default function ChunkUploader({ onFileSelect, onUploadComplete }: ChunkU
 
             // 启动并发上传
             const uploadPromises = [];
-            for (let i = 0; i < concurrency; i++) {
+            for (let i = 0; i < concurrency && i < totalChunks; i++) {
                 uploadPromises.push(uploadNextChunk());
             }
 
@@ -216,6 +245,8 @@ export default function ChunkUploader({ onFileSelect, onUploadComplete }: ChunkU
                 description: '服务器错误，请稍后再试',
             });
             setUploadState(prev => prev ? { ...prev, status: 'error' } : null);
+            // 调用错误回调
+            if (onUploadError) onUploadError();
         } finally {
             setIsUploading(false);
         }
@@ -231,7 +262,7 @@ export default function ChunkUploader({ onFileSelect, onUploadComplete }: ChunkU
             toast.error('请选择视频文件');
             return;
         }
-
+        // prepareChunkUpload(file);
         // 开始上传
         startChunkUpload(file);
     };
@@ -260,86 +291,50 @@ export default function ChunkUploader({ onFileSelect, onUploadComplete }: ChunkU
 
     return (
         <div className="space-y-4">
-            {!uploadState ? (
-                <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-md">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground mb-4">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                        <polyline points="17 8 12 3 7 8"></polyline>
-                        <line x1="12" y1="3" x2="12" y2="15"></line>
-                    </svg>
-                    <p className="mb-2 text-sm font-medium">点击或拖拽上传视频</p>
-                    <p className="text-xs text-muted-foreground mb-4">支持 MP4, MOV, AVI 等格式</p>
-                    <input
-                        title="视频文件上传"
-                        placeholder="请选择要上传的视频文件"
-                        ref={fileInputRef}
-                        type="file"
-                        accept="video/*"
-                        onChange={handleFileChange}
-                        className="hidden"
-                        id="video-upload"
-                    />
-                    <Button
-                        variant="outline"
-                        onClick={() => fileInputRef.current?.click()}
+            {!initialFile && (
+                <div className="flex items-center justify-center w-full">
+                    <label
+                        htmlFor="video-upload"
+                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
                     >
-                        选择视频文件
-                    </Button>
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            <svg className="w-8 h-8 mb-4 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                                <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2" />
+                            </svg>
+                            <p className="mb-2 text-sm text-gray-500">
+                                <span className="font-semibold">点击上传</span> 或拖放
+                            </p>
+                            <p className="text-xs text-gray-500">支持的格式: MP4, WebM, MOV (最大 500MB)</p>
+                        </div>
+                        <input
+                            id="video-upload"
+                            type="file"
+                            className="hidden"
+                            accept="video/*"
+                            ref={fileInputRef}
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                    startChunkUpload(file);
+                                }
+                            }}
+                        />
+                    </label>
                 </div>
-            ) : (
-                <div className="p-4 border rounded-md">
-                    <div className="flex justify-between items-center mb-2">
-                        <p className="font-medium">{uploadState.filename}</p>
-                        <p className="text-sm text-muted-foreground">
-                            {Math.round(uploadState.progress)}%
-                        </p>
+            )}
+
+            {uploadState && (
+                <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                        <span>上传进度: {uploadState.progress}%</span>
+                        <span>{Math.round((uploadState.progress / 100) * uploadState.totalSize / (1024 * 1024))} / {Math.round(uploadState.totalSize / (1024 * 1024))} MB</span>
                     </div>
-
-                    <Progress value={uploadState.progress} className="mb-4" />
-
-                    <div className="flex justify-between items-center">
-                        <div className="text-sm text-muted-foreground">
-                            {uploadState.uploadedChunks.size} / {uploadState.totalChunks} 分片
-                            ({(uploadState.totalSize / (1024 * 1024)).toFixed(2)} MB)
-                        </div>
-
-                        <div className="flex space-x-2">
-                            {uploadState.status === 'uploading' ? (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handlePauseUpload}
-                                    disabled={uploadState.progress === 100}
-                                >
-                                    暂停
-                                </Button>
-                            ) : uploadState.status === 'paused' ? (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleResumeUpload}
-                                >
-                                    继续
-                                </Button>
-                            ) : null}
-
-                            {uploadState.status !== 'completed' && (
-                                <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    onClick={handleCancelUpload}
-                                >
-                                    取消
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-
-                    {uploadState.status === 'error' && (
-                        <div className="mt-2 text-sm text-destructive">
-                            上传出错，请重试或选择其他文件
-                        </div>
-                    )}
+                    <Progress value={uploadState.progress} className="h-2" />
+                    <p className="text-xs text-gray-500">
+                        {uploadState.status === 'uploading' && '正在上传...'}
+                        {uploadState.status === 'completed' && '上传完成'}
+                        {uploadState.status === 'error' && '上传失败'}
+                    </p>
                 </div>
             )}
         </div>
