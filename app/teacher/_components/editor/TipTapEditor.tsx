@@ -19,29 +19,29 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
     if (!editor) {
         return null;
     }
-    
+
     // 上传图片
     const uploadImage = async () => {
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/*';
-        
+
         input.onchange = async () => {
             if (!input.files?.length) return;
-            
+
             const file = input.files[0];
             const formData = new FormData();
             formData.append('file', file);
-            
+
             try {
-                const response = await apiClient.post('/minio/upload', formData, {
+                const response = await apiClient.post<{ url: string; filename: string }>('/minio/upload', formData, {
                     headers: {
                         'Content-Type': 'multipart/form-data'
                     }
                 });
-                
+
                 if (response.code === 0) {
-                    editor.chain().focus().setImage({ src: response.data.url }).run();
+                    editor.chain().focus().setImage({ src: response.data!.url }).run();
                 } else {
                     toast.error('图片上传失败', {
                         description: response.msg || '服务器错误',
@@ -54,21 +54,21 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
                 });
             }
         };
-        
+
         input.click();
     };
-    
+
     // 添加链接
     const setLink = () => {
         const url = window.prompt('URL');
-        
+
         if (url) {
             editor.chain().focus().setLink({ href: url }).run();
         } else {
             editor.chain().focus().unsetLink().run();
         }
     };
-    
+
     return (
         <div className="border-b p-2 flex flex-wrap gap-1">
             <Toggle
@@ -78,7 +78,7 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
             >
                 <span className="font-bold">B</span>
             </Toggle>
-            
+
             <Toggle
                 pressed={editor.isActive('italic')}
                 onPressedChange={() => editor.chain().focus().toggleItalic().run()}
@@ -86,7 +86,7 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
             >
                 <span className="italic">I</span>
             </Toggle>
-            
+
             <Toggle
                 pressed={editor.isActive('strike')}
                 onPressedChange={() => editor.chain().focus().toggleStrike().run()}
@@ -94,7 +94,7 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
             >
                 <span className="line-through">S</span>
             </Toggle>
-            
+
             <Toggle
                 pressed={editor.isActive('heading', { level: 1 })}
                 onPressedChange={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
@@ -102,7 +102,7 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
             >
                 H1
             </Toggle>
-            
+
             <Toggle
                 pressed={editor.isActive('heading', { level: 2 })}
                 onPressedChange={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
@@ -110,7 +110,7 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
             >
                 H2
             </Toggle>
-            
+
             <Toggle
                 pressed={editor.isActive('heading', { level: 3 })}
                 onPressedChange={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
@@ -118,7 +118,7 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
             >
                 H3
             </Toggle>
-            
+
             <Toggle
                 pressed={editor.isActive('bulletList')}
                 onPressedChange={() => editor.chain().focus().toggleBulletList().run()}
@@ -126,7 +126,7 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
             >
                 • 列表
             </Toggle>
-            
+
             <Toggle
                 pressed={editor.isActive('orderedList')}
                 onPressedChange={() => editor.chain().focus().toggleOrderedList().run()}
@@ -134,7 +134,7 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
             >
                 1. 列表
             </Toggle>
-            
+
             <Toggle
                 pressed={editor.isActive('blockquote')}
                 onPressedChange={() => editor.chain().focus().toggleBlockquote().run()}
@@ -142,34 +142,34 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
             >
                 引用
             </Toggle>
-            
-            <Button 
-                variant="outline" 
+
+            <Button
+                variant="outline"
                 size="sm"
                 onClick={uploadImage}
             >
                 图片
             </Button>
-            
-            <Button 
-                variant="outline" 
+
+            <Button
+                variant="outline"
                 size="sm"
                 onClick={setLink}
             >
                 链接
             </Button>
-            
-            <Button 
-                variant="outline" 
+
+            <Button
+                variant="outline"
                 size="sm"
                 onClick={() => editor.chain().focus().undo().run()}
                 disabled={!editor.can().undo()}
             >
                 撤销
             </Button>
-            
-            <Button 
-                variant="outline" 
+
+            <Button
+                variant="outline"
                 size="sm"
                 onClick={() => editor.chain().focus().redo().run()}
                 disabled={!editor.can().redo()}
@@ -197,7 +197,7 @@ export function TipTapEditor({ onChange, initialContent = '' }: TipTapEditorProp
             onChange(editor.getHTML());
         },
     });
-    
+
     return (
         <div className="border rounded-md overflow-hidden">
             <MenuBar editor={editor} />

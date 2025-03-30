@@ -1,14 +1,24 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/_components/ui/card';
 import { Button } from '@/app/_components/ui/button';
-import { Input } from '@/app/_components/ui/input';
 import { Label } from '@/app/_components/ui/label';
-import { Textarea } from '@/app/_components/ui/textarea';
 import { apiClient } from '@/app/_lib/api-client';
 import { toast } from 'sonner';
 import ResourceForm from './ResourceForm';
+import dynamic from 'next/dynamic';
+
+// 动态导入编辑器组件，禁用 SSR
+const TipTapEditor = dynamic(
+    () => import('@/app/teacher/_components/editor/TipTapEditor').then(mod => mod.TipTapEditor),
+    {
+        ssr: false,
+        loading: () => <div className="min-h-[400px] border rounded-md p-4 flex items-center justify-center">
+            <p>加载编辑器中...</p>
+        </div>
+    }
+);
 
 interface ArticleEditorProps {
     onCancel: () => void;
@@ -23,43 +33,15 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
         coverImage: ''
     });
     const [loading, setLoading] = useState(false);
-    const [editorLoaded, setEditorLoaded] = useState(false);
-    const [editor, setEditor] = useState<any>(null);
-
-    // 编辑器引用
-    const editorRef = useRef<HTMLDivElement>(null);
-
-    // 初始化编辑器
-    useEffect(() => {
-        // 动态加载编辑器
-        if (!editorLoaded) {
-            import('@/app/teacher/_components/editor/TipTapEditor').then(({ TipTapEditor }) => {
-                if (editorRef.current) {
-                    const newEditor = TipTapEditor({
-                        onChange: (content: string) => {
-                            setArticleForm(prev => ({ ...prev, content }));
-                        }
-                    });
-                    setEditor(newEditor);
-                    setEditorLoaded(true);
-                }
-            }).catch(err => {
-                console.error('加载编辑器失败:', err);
-                toast.error('加载编辑器失败');
-            });
-        }
-
-        // 清理函数
-        return () => {
-            if (editor && editor.destroy) {
-                editor.destroy();
-            }
-        };
-    }, []);
 
     // 处理表单变化
     const handleFormChange = (name: string, value: string) => {
         setArticleForm(prev => ({ ...prev, [name]: value }));
+    };
+
+    // 处理编辑器内容变化
+    const handleEditorChange = (content: string) => {
+        setArticleForm(prev => ({ ...prev, content }));
     };
 
     // 上传封面图片
@@ -103,7 +85,7 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
 
         setLoading(true);
         try {
-            const response = await apiClient.post('/resource/create', {
+            const response = await apiClient.post('/resource', {
                 title: articleForm.title,
                 description: articleForm.description,
                 content: articleForm.content,
@@ -147,11 +129,11 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
 
                 <div className="space-y-2">
                     <Label htmlFor="content">文章内容</Label>
-                    <div
-                        ref={editorRef}
-                        className="min-h-[400px] border rounded-md p-4"
-                    >
-                        {!editorLoaded && <p>加载编辑器中...</p>}
+                    <div className="min-h-[400px]">
+                        <TipTapEditor
+                            onChange={handleEditorChange}
+                            initialContent={articleForm.content}
+                        />
                     </div>
                 </div>
             </CardContent>
