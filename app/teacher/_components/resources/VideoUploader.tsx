@@ -38,10 +38,26 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
         setVideoForm(prev => ({ ...prev, [name]: value }));
     };
 
+    // 生成相对路径，按年月和类型分类
+    const generateRelativePath = (fileType: string) => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+
+        // 根据文件类型确定文件夹
+        const typeFolder = fileType.startsWith('video/') ? 'video' :
+            fileType.startsWith('audio/') ? 'audio' :
+                fileType.startsWith('image/') ? 'image' : 'other';
+
+        return `${year}/${month}/${typeFolder}`;
+    };
+
     // 上传封面图片
     const handleUploadCover = async (file: File) => {
         const formData = new FormData();
         formData.append('file', file);
+        // 添加相对路径参数
+        formData.append('relativePath', generateRelativePath(file.type));
 
         try {
             const response = await apiClient.post<FileUploadData>('/minio/upload', formData, {

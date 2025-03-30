@@ -29,11 +29,26 @@ export default function ChunkUploader({ onFileSelect, onUploadComplete }: ChunkU
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // 生成相对路径，按年月和类型分类
+    const generateRelativePath = (fileType: string) => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+
+        // 根据文件类型确定文件夹
+        const typeFolder = fileType.startsWith('video/') ? 'video' :
+            fileType.startsWith('audio/') ? 'audio' :
+                fileType.startsWith('image/') ? 'image' : 'other';
+
+        return `${year}/${month}/${typeFolder}`;
+    };
+
     // 准备分片上传
     const prepareChunkUpload = (file: File) => {
         const chunkSize = 1024 * 1024 * 5; // 5MB
         const totalChunks = Math.ceil(file.size / chunkSize);
-        const identifier = `${file.name}-${file.size}-${new Date().getTime()}`;
+        const identifier = `${file.name}-${file.size}`;
+        const relativePath = generateRelativePath(file.type);
 
         setUploadState({
             identifier,
@@ -47,32 +62,28 @@ export default function ChunkUploader({ onFileSelect, onUploadComplete }: ChunkU
             file
         });
 
-        return { identifier, totalChunks, chunkSize };
+        return { identifier, totalChunks, chunkSize, relativePath };
     };
 
     // 上传单个分片
-    const uploadChunk = async (chunk: Blob, chunkNumber: number, identifier: string, filename: string, totalChunks: number) => {
+    const uploadChunk = async (chunk: Blob, chunkNumber: number, identifier: string, file: File, totalChunks: number, relativePath: string) => {
         const formData = new FormData();
         formData.append('file', chunk, `${identifier}-${chunkNumber}`);
         formData.append('chunkNumber', chunkNumber.toString());
         formData.append('chunkSize', chunk.size.toString());
-        formData.append('currentChunkSize', chunk.size.toString());
-        formData.append('totalSize', uploadState?.totalSize.toString() || '0');
+        formData.append('totalSize', file.size.toString());
         formData.append('identifier', identifier);
-        formData.append('filename', filename);
+        formData.append('filename', file.name);
         formData.append('totalChunks', totalChunks.toString());
-        formData.append('fileType', uploadState?.file.type || '');
+        formData.append('fileType', file.type);
+        formData.append('relativePath', relativePath);
 
         try {
             // 先检查分片是否存在
-            const checkResponse = await apiClient.post('/minio/chunk/check', formData);
-            console.log("checkResponse ===>", checkResponse);
-            
+            const checkResponse = await apiClient.post<{ exist: boolean }>('/minio/chunk/check', formData);
             // 判断分片是否存在，注意检查 data.exists 字段
-            const chunkExists = checkResponse.code === 0 && 
-                           (checkResponse.data === true || 
-                            (checkResponse.data && checkResponse.data.exists === true));
-            
+            const chunkExists = checkResponse.code === 0 && checkResponse.data && checkResponse.data.exist;
+
             if (chunkExists) {
                 console.log(`分片 ${chunkNumber} 已存在，跳过上传`);
                 // 分片已存在，标记为已上传
@@ -119,17 +130,17 @@ export default function ChunkUploader({ onFileSelect, onUploadComplete }: ChunkU
     };
 
     // 合并分片
-    const mergeChunks = async (identifier: string, filename: string, totalChunks: number) => {
+    const mergeChunks = async (identifier: string, filename: string, totalChunks: number, relativePath: string) => {
         try {
-            const response = await apiClient.post('/minio/chunk/merge', {
+            const response = await apiClient.post<{ url: string; filename: string }>('/minio/chunk/merge', {
                 identifier,
                 filename,
-                totalChunks
+                totalChunks,
+                relativePath
             });
-            console.log("response ===>", response)
             if (response.code === 0) {
                 setUploadState(prev => prev ? { ...prev, status: 'completed' } : null);
-                return response.data.url;
+                return response.data!.url;
             } else {
                 throw new Error(response.msg || '合并分片失败');
             }
@@ -147,8 +158,19 @@ export default function ChunkUploader({ onFileSelect, onUploadComplete }: ChunkU
         setIsUploading(true);
         try {
             onFileSelect(file);
-            const { identifier, totalChunks, chunkSize } = prepareChunkUpload(file);
-            setUploadState(prev => prev ? { ...prev, status: 'uploading' } : null);
+            const { identifier, totalChunks, chunkSize, relativePath } = prepareChunkUpload(file);
+            // 确保在开始上传前设置状态
+            setUploadState({
+                identifier,
+                filename: file.name,
+                totalChunks,
+                chunkSize,
+                totalSize: file.size,
+                uploadedChunks: new Set(),
+                status: 'uploading',
+                progress: 0,
+                file
+            });
 
             // 并发上传分片，最多5个并发
             const concurrency = 5;
@@ -164,15 +186,15 @@ export default function ChunkUploader({ onFileSelect, onUploadComplete }: ChunkU
                 const end = Math.min(start + chunkSize, file.size);
                 const chunk = file.slice(start, end);
 
-                const success = await uploadChunk(chunk, chunkNumber, identifier, file.name, totalChunks);
-                
+                const success = await uploadChunk(chunk, chunkNumber, identifier, file, totalChunks, relativePath);
+
                 if (success) {
                     // 使用本地变量跟踪上传进度
                     uploadedChunks.add(chunkNumber);
-                    
+
                     // 检查是否所有分片都已上传
                     if (uploadedChunks.size === totalChunks) {
-                        const fileUrl = await mergeChunks(identifier, file.name, totalChunks);
+                        const fileUrl = await mergeChunks(identifier, file.name, totalChunks, relativePath);
                         onUploadComplete(fileUrl);
                         return;
                     }
@@ -248,6 +270,8 @@ export default function ChunkUploader({ onFileSelect, onUploadComplete }: ChunkU
                     <p className="mb-2 text-sm font-medium">点击或拖拽上传视频</p>
                     <p className="text-xs text-muted-foreground mb-4">支持 MP4, MOV, AVI 等格式</p>
                     <input
+                        title="视频文件上传"
+                        placeholder="请选择要上传的视频文件"
                         ref={fileInputRef}
                         type="file"
                         accept="video/*"
