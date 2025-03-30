@@ -154,7 +154,17 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
             setLoading(false);
         }
     };
-    console.log("videoFile ===>", videoFile)
+    const [uploaderKey, setUploaderKey] = useState(0);
+    // 修改重新选择按钮的点击处理函数
+    const handleReselect = () => {
+        // 完全重置所有状态
+        setVideoFile(null);
+        setUploadComplete(false);
+        setVideoForm(prev => ({ ...prev, url: '', duration: 0 }));
+        setUploadStatus('idle');
+        // 增加key值，强制重新渲染ChunkUploader组件
+        setUploaderKey(prev => prev + 1);
+    };
     return (
         <Card>
             <CardHeader>
@@ -189,6 +199,7 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
                     {/* 修改渲染逻辑，根据上传状态决定显示内容 */}
                     {uploadStatus === 'idle' ? (
                         <ChunkUploader
+                            key={uploaderKey}
                             onFileSelect={handleVideoFileSelect}
                             onUploadComplete={handleUploadComplete}
                             onUploadError={handleUploadError}
@@ -205,11 +216,12 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
                                     </p>
                                 </>
                             )}
-                            
+
                             {/* 根据上传状态显示不同内容 */}
                             {uploadStatus === 'uploading' && (
                                 <div className="mt-2">
                                     <ChunkUploader
+                                        key={uploaderKey}
                                         onFileSelect={handleVideoFileSelect}
                                         onUploadComplete={handleUploadComplete}
                                         onUploadError={handleUploadError}
@@ -217,7 +229,7 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
                                     />
                                 </div>
                             )}
-                            
+
                             {uploadStatus === 'completed' && (
                                 <div className="flex items-center space-x-2 text-green-500">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -227,7 +239,7 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
                                     <span>上传完成</span>
                                 </div>
                             )}
-                            
+
                             {uploadStatus === 'error' && (
                                 <div className="flex items-center space-x-2 text-red-500">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -238,18 +250,12 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
                                     <span>上传失败</span>
                                 </div>
                             )}
-                            
-                            {/* 只有在上传完成或失败时才显示重新选择按钮 */}
+
                             {(uploadStatus === 'completed' || uploadStatus === 'error') && (
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => {
-                                        setVideoFile(null);
-                                        setUploadComplete(false);
-                                        setVideoForm(prev => ({ ...prev, url: '', duration: 0 }));
-                                        setUploadStatus('idle');
-                                    }}
+                                    onClick={handleReselect}
                                 >
                                     重新选择
                                 </Button>
