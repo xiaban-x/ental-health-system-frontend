@@ -35,20 +35,23 @@ interface PaginatedResponse<T> {
 interface ResourceListProps {
     onAddArticle: () => void;
     onAddVideo: () => void;
+    onEditResource: (resource: Resource) => void; // 添加编辑资源的回调函数
 }
 
-export default function ResourceList({ onAddArticle, onAddVideo }: ResourceListProps) {
+export default function ResourceList({ onAddArticle, onAddVideo, onEditResource }: ResourceListProps) {
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
     const [resourceType, setResourceType] = useState<'all' | 'article' | 'video' | 'tool'>('all');
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [resourceToDelete, setResourceToDelete] = useState<number | null>(null);
-    
+
     // 使用封装好的 useApi 钩子获取资源列表
     const { data, error, isLoading, mutate } = useApi<PaginatedResponse<Resource>>(
         `/resource/list?page=${currentPage}&size=${pageSize}&type=${resourceType}`
     );
-    
+    const handleEditResource = (resource: Resource) => {
+        onEditResource(resource);
+    };
     // 处理页码变化
     const handlePageChange = (page: number) => {
         setCurrentPage(page);
@@ -60,26 +63,26 @@ export default function ResourceList({ onAddArticle, onAddVideo }: ResourceListP
         setPageSize(newSize);
         setCurrentPage(1); // 重置到第一页
     };
-    
+
     // 处理资源类型筛选变化
     const handleResourceTypeChange = (value: string) => {
         setResourceType(value as 'all' | 'article' | 'video' | 'tool');
         setCurrentPage(1);
     };
-    
+
     // 打开删除确认对话框
     const openDeleteDialog = (id: number) => {
         setResourceToDelete(id);
         setDeleteDialogOpen(true);
     };
-    
+
     // 删除资源
     const handleDeleteResource = async () => {
         if (!resourceToDelete) return;
-        
+
         try {
             const response = await apiClient.delete(`/resource/${resourceToDelete}`);
-            
+
             if (response.code === 0) {
                 toast.success('资源删除成功');
                 mutate(); // 使用 SWR 的 mutate 函数重新获取数据
@@ -97,7 +100,7 @@ export default function ResourceList({ onAddArticle, onAddVideo }: ResourceListP
             });
         }
     };
-    
+
     // 格式化视频时长
     const formatDuration = (seconds?: number) => {
         if (!seconds) return '未知';
@@ -105,12 +108,12 @@ export default function ResourceList({ onAddArticle, onAddVideo }: ResourceListP
         const remainingSeconds = seconds % 60;
         return `${minutes}分${remainingSeconds}秒`;
     };
-    
+
     // 获取资源列表和总页数
     const resources = data?.list || [];
     const totalPages = data?.totalPage || 1;
     const totalCount = data?.total || 0;
-    
+
     return (
         <Card>
             <CardHeader>
@@ -131,7 +134,7 @@ export default function ResourceList({ onAddArticle, onAddVideo }: ResourceListP
                                 <SelectItem value="tool">工具</SelectItem>
                             </SelectContent>
                         </Select>
-                        
+
                         <Select
                             value={pageSize.toString()}
                             onValueChange={handlePageSizeChange}
@@ -177,16 +180,20 @@ export default function ResourceList({ onAddArticle, onAddVideo }: ResourceListP
                                         <div>
                                             <CardTitle>{resource.title}</CardTitle>
                                             <CardDescription>
-                                                类型: {resource.type === 'article' ? '文章' : resource.type === 'video' ? '视频' : '工具'} | 
+                                                类型: {resource.type === 'article' ? '文章' : resource.type === 'video' ? '视频' : '工具'} |
                                                 创建时间: {new Date(resource.createdAt).toLocaleString('zh-CN')}
                                             </CardDescription>
                                         </div>
                                         <div className="flex space-x-2">
-                                            <Button variant="outline" size="sm">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleEditResource(resource)}
+                                            >
                                                 编辑
                                             </Button>
-                                            <Button 
-                                                variant="destructive" 
+                                            <Button
+                                                variant="destructive"
                                                 size="sm"
                                                 onClick={() => openDeleteDialog(resource.id)}
                                             >
@@ -205,7 +212,7 @@ export default function ResourceList({ onAddArticle, onAddVideo }: ResourceListP
                         ))}
                     </div>
                 )}
-                
+
                 {/* 分页控件 */}
                 {resources.length > 0 && (
                     <div className="mt-6 flex justify-between items-center w-full">
@@ -240,7 +247,7 @@ export default function ResourceList({ onAddArticle, onAddVideo }: ResourceListP
                         </Pagination>
                     </div>
                 )}
-                
+
                 {/* 删除确认对话框 */}
                 <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
                     <DialogContent>

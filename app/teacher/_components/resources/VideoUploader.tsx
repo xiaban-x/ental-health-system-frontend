@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/_components/ui/card';
 import { Button } from '@/app/_components/ui/button';
 import { Input } from '@/app/_components/ui/input';
@@ -16,12 +16,29 @@ interface FileUploadData {
     fileName: string;
 }
 
+// 资源类型接口
+interface Resource {
+    id: number;
+    title: string;
+    description: string;
+    content?: string;
+    url: string;
+    type: 'article' | 'video' | 'tool';
+    createdAt: string;
+    updatedAt: string;
+    duration?: number;
+    author: string;
+    coverImage?: string;
+}
+
 interface VideoUploaderProps {
     onCancel: () => void;
     onSuccess: () => void;
+    initialData?: Resource; // 添加初始数据，用于编辑模式
+    isEditing?: boolean; // 是否为编辑模式
 }
 
-export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProps) {
+export default function VideoUploader({ onCancel, onSuccess, initialData, isEditing = false }: VideoUploaderProps) {
     const [videoForm, setVideoForm] = useState({
         title: '',
         description: '',
@@ -34,6 +51,25 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
     const [uploadComplete, setUploadComplete] = useState(false);
     // 添加上传状态跟踪
     const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'completed' | 'error'>('idle');
+    
+    // 如果是编辑模式，初始化表单数据
+    useEffect(() => {
+        if (isEditing && initialData) {
+            setVideoForm({
+                title: initialData.title || '',
+                description: initialData.description || '',
+                duration: initialData.duration || 0,
+                coverImage: initialData.coverImage || '',
+                url: initialData.url || ''
+            });
+            
+            // 如果已有URL，设置上传状态为已完成
+            if (initialData.url) {
+                setUploadComplete(true);
+                setUploadStatus('completed');
+            }
+        }
+    }, [isEditing, initialData]);
 
     // 处理表单变化
     const handleFormChange = (name: string, value: string | number) => {
@@ -129,32 +165,49 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
 
         setLoading(true);
         try {
-            const response = await apiClient.post('/resource', {
-                title: videoForm.title,
-                description: videoForm.description,
-                url: videoForm.url,
-                type: 'video',
-                duration: videoForm.duration,
-                coverImage: videoForm.coverImage || null
-            });
+            let response;
+            
+            if (isEditing && initialData) {
+                // 更新视频资源
+                response = await apiClient.put(`/resource/${initialData.id}`, {
+                    title: videoForm.title,
+                    description: videoForm.description,
+                    url: videoForm.url,
+                    type: 'video',
+                    duration: videoForm.duration,
+                    coverImage: videoForm.coverImage || null
+                });
+            } else {
+                // 创建新视频资源
+                response = await apiClient.post('/resource', {
+                    title: videoForm.title,
+                    description: videoForm.description,
+                    url: videoForm.url,
+                    type: 'video',
+                    duration: videoForm.duration,
+                    coverImage: videoForm.coverImage || null
+                });
+            }
 
             if (response.code === 0) {
                 onSuccess();
             } else {
-                toast.error('视频资源创建失败', {
+                toast.error(isEditing ? '视频资源更新失败' : '视频资源创建失败', {
                     description: response.msg || '服务器错误',
                 });
             }
         } catch (error) {
-            console.error('创建视频资源错误:', error);
-            toast.error('视频资源创建失败', {
+            console.error(isEditing ? '更新视频资源错误:' : '创建视频资源错误:', error);
+            toast.error(isEditing ? '视频资源更新失败' : '视频资源创建失败', {
                 description: '服务器错误，请稍后再试',
             });
         } finally {
             setLoading(false);
         }
     };
+    
     const [uploaderKey, setUploaderKey] = useState(0);
+    
     // 修改重新选择按钮的点击处理函数
     const handleReselect = () => {
         // 完全重置所有状态
@@ -165,11 +218,12 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
         // 增加key值，强制重新渲染ChunkUploader组件
         setUploaderKey(prev => prev + 1);
     };
+    
     return (
         <Card>
             <CardHeader>
-                <CardTitle>上传视频</CardTitle>
-                <CardDescription>上传新的视频资源</CardDescription>
+                <CardTitle>{isEditing ? '编辑视频' : '上传视频'}</CardTitle>
+                <CardDescription>{isEditing ? '修改现有视频资源' : '上传新的视频资源'}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <ResourceForm
@@ -190,14 +244,27 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
                         value={videoForm.duration || ''}
                         onChange={(e) => handleFormChange('duration', parseInt(e.target.value) || 0)}
                         placeholder="视频时长将在上传后自动获取"
-                        disabled={!!videoFile}
+                        disabled={!!videoFile || (isEditing && !!initialData?.url)}
                     />
                 </div>
 
                 <div className="space-y-2">
                     <Label>视频文件</Label>
-                    {/* 修改渲染逻辑，根据上传状态决定显示内容 */}
-                    {uploadStatus === 'idle' ? (
+                    {/* 编辑模式且已有URL时显示当前视频信息 */}
+                    {isEditing && initialData?.url && uploadStatus !== 'idle' ? (
+                        <div className="flex flex-col space-y-2 p-4 border rounded-md">
+                            <p className="font-medium">当前视频</p>
+                            <p className="text-sm text-muted-foreground">
+                                URL: {videoForm.url.substring(0, 50)}... |
+                                时长: {Math.floor(videoForm.duration / 60)}分{videoForm.duration % 60}秒
+                            </p>
+                            <div className="flex justify-between mt-2">
+                                <Button variant="outline" size="sm" onClick={handleReselect}>
+                                    重新上传视频
+                                </Button>
+                            </div>
+                        </div>
+                    ) : uploadStatus === 'idle' ? (
                         <ChunkUploader
                             key={uploaderKey}
                             onFileSelect={handleVideoFileSelect}
@@ -231,34 +298,21 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
                             )}
 
                             {uploadStatus === 'completed' && (
-                                <div className="flex items-center space-x-2 text-green-500">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                                    </svg>
-                                    <span>上传完成</span>
+                                <div className="flex justify-between mt-2">
+                                    <p className="text-green-600 font-medium">上传完成</p>
+                                    <Button variant="outline" size="sm" onClick={handleReselect}>
+                                        重新选择
+                                    </Button>
                                 </div>
                             )}
 
                             {uploadStatus === 'error' && (
-                                <div className="flex items-center space-x-2 text-red-500">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <circle cx="12" cy="12" r="10"></circle>
-                                        <line x1="15" y1="9" x2="9" y2="15"></line>
-                                        <line x1="9" y1="9" x2="15" y2="15"></line>
-                                    </svg>
-                                    <span>上传失败</span>
+                                <div className="flex justify-between mt-2">
+                                    <p className="text-red-600 font-medium">上传失败</p>
+                                    <Button variant="outline" size="sm" onClick={handleReselect}>
+                                        重新选择
+                                    </Button>
                                 </div>
-                            )}
-
-                            {(uploadStatus === 'completed' || uploadStatus === 'error') && (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleReselect}
-                                >
-                                    重新选择
-                                </Button>
                             )}
                         </div>
                     )}
@@ -268,11 +322,11 @@ export default function VideoUploader({ onCancel, onSuccess }: VideoUploaderProp
                 <Button variant="outline" onClick={onCancel}>
                     取消
                 </Button>
-                <Button
-                    onClick={handleSubmit}
-                    disabled={loading || !uploadComplete || !videoForm.title || !videoForm.description}
+                <Button 
+                    onClick={handleSubmit} 
+                    disabled={loading || (!uploadComplete && (!isEditing || !initialData?.url))}
                 >
-                    {loading ? '提交中...' : '发布视频'}
+                    {loading ? (isEditing ? '更新中...' : '提交中...') : (isEditing ? '更新视频' : '发布视频')}
                 </Button>
             </CardFooter>
         </Card>

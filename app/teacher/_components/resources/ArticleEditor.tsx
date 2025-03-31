@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/_components/ui/card';
 import { Button } from '@/app/_components/ui/button';
 import { Label } from '@/app/_components/ui/label';
@@ -20,12 +20,29 @@ const TipTapEditor = dynamic(
     }
 );
 
+// 资源类型接口
+interface Resource {
+    id: number;
+    title: string;
+    description: string;
+    content?: string;
+    url: string;
+    type: 'article' | 'video' | 'tool';
+    createdAt: string;
+    updatedAt: string;
+    duration?: number;
+    author: string;
+    coverImage?: string;
+}
+
 interface ArticleEditorProps {
     onCancel: () => void;
     onSuccess: () => void;
+    initialData?: Resource; // 添加初始数据，用于编辑模式
+    isEditing?: boolean; // 是否为编辑模式
 }
 
-export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProps) {
+export default function ArticleEditor({ onCancel, onSuccess, initialData, isEditing = false }: ArticleEditorProps) {
     const [articleForm, setArticleForm] = useState({
         title: '',
         description: '',
@@ -33,6 +50,19 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
         coverImage: ''
     });
     const [loading, setLoading] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false); // 添加提交状态标记
+
+    // 如果是编辑模式，初始化表单数据
+    useEffect(() => {
+        if (isEditing && initialData) {
+            setArticleForm({
+                title: initialData.title || '',
+                description: initialData.description || '',
+                content: initialData.content || '',
+                coverImage: initialData.coverImage || ''
+            });
+        }
+    }, [isEditing, initialData]);
 
     // 处理表单变化
     const handleFormChange = (name: string, value: string) => {
@@ -48,15 +78,20 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
     const handleUploadCover = async (file: File) => {
         const formData = new FormData();
         formData.append('file', file);
-
+    
         try {
-            toast.loading('正在上传封面...');
+            // 创建一个 loading toast 并保存它的 ID
+            const loadingToastId = toast.loading('正在上传封面...');
+            
             const response = await apiClient.post<{ url: string; filename: string }>('/minio/upload', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }
             });
-
+    
+            // 关闭 loading toast
+            toast.dismiss(loadingToastId);
+    
             if (response.code === 0) {
                 setArticleForm(prev => ({ ...prev, coverImage: response.data!.url }));
                 toast.success('封面上传成功');
@@ -68,6 +103,8 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
                 return null;
             }
         } catch (error) {
+            // 确保在出错时也关闭所有 loading toast
+            toast.dismiss();
             console.error('上传封面错误:', error);
             toast.error('封面上传失败', {
                 description: '服务器错误，请稍后再试',
@@ -85,40 +122,61 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
             return;
         }
 
+        // 防止重复提交
+        if (isSubmitting) return;
+        setIsSubmitting(true);
         setLoading(true);
+        
         try {
-            toast.loading('正在提交文章...');
-            const response = await apiClient.post('/resource', {
-                title: articleForm.title,
-                description: articleForm.description,
-                content: articleForm.content,
-                type: 'article',
-                coverImage: articleForm.coverImage || null
-            });
+            // 移除这里的 toast.loading，避免多次提示
+            // toast.loading(isEditing ? '正在更新文章...' : '正在提交文章...');
+            
+            let response;
+            if (isEditing && initialData) {
+                // 更新文章
+                response = await apiClient.put(`/resource/${initialData.id}`, {
+                    title: articleForm.title,
+                    description: articleForm.description,
+                    content: articleForm.content,
+                    type: 'article',
+                    coverImage: articleForm.coverImage || null
+                });
+            } else {
+                // 创建新文章
+                response = await apiClient.post('/resource', {
+                    title: articleForm.title,
+                    description: articleForm.description,
+                    content: articleForm.content,
+                    type: 'article',
+                    coverImage: articleForm.coverImage || null
+                });
+            }
 
             if (response.code === 0) {
-                toast.success('文章创建成功');
+                // 移除这里的 toast.success，只在 onSuccess 中显示一次
+                // toast.success(isEditing ? '文章更新成功' : '文章创建成功');
                 onSuccess();
             } else {
-                toast.error('文章创建失败', {
+                toast.error(isEditing ? '文章更新失败' : '文章创建失败', {
                     description: response.msg || '服务器错误',
                 });
             }
         } catch (error) {
-            console.error('创建文章错误:', error);
-            toast.error('文章创建失败', {
+            console.error(isEditing ? '更新文章错误:' : '创建文章错误:', error);
+            toast.error(isEditing ? '文章更新失败' : '文章创建失败', {
                 description: '服务器错误，请稍后再试',
             });
         } finally {
             setLoading(false);
+            setIsSubmitting(false); // 重置提交状态
         }
     };
 
     return (
         <Card className="w-full">
             <CardHeader>
-                <CardTitle>新增文章</CardTitle>
-                <CardDescription>创建新的文章资源</CardDescription>
+                <CardTitle>{isEditing ? '编辑文章' : '新增文章'}</CardTitle>
+                <CardDescription>{isEditing ? '修改现有文章' : '创建新的文章资源'}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <ResourceForm
@@ -146,7 +204,7 @@ export default function ArticleEditor({ onCancel, onSuccess }: ArticleEditorProp
                     取消
                 </Button>
                 <Button onClick={handleSubmit} disabled={loading}>
-                    {loading ? '提交中...' : '发布文章'}
+                    {loading ? (isEditing ? '更新中...' : '提交中...') : (isEditing ? '更新文章' : '发布文章')}
                 </Button>
             </CardFooter>
         </Card>
