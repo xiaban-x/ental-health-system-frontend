@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/_components/ui/card';
 import { Button } from '@/app/_components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/_components/ui/select';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/app/_components/ui/pagination';
-import { apiClient } from '@/app/_lib/api-client';
+import { apiClient, useApi } from '@/app/_lib/api-client';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/app/_components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/app/_components/ui/dialog';
 
 // 资源类型接口
 interface Resource {
@@ -38,43 +38,16 @@ interface ResourceListProps {
 }
 
 export default function ResourceList({ onAddArticle, onAddVideo }: ResourceListProps) {
-    const [resources, setResources] = useState<Resource[]>([]);
-    const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
-    const [totalPages, setTotalPages] = useState(1);
     const [resourceType, setResourceType] = useState<'all' | 'article' | 'video' | 'tool'>('all');
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [resourceToDelete, setResourceToDelete] = useState<number | null>(null);
     
-    // 获取资源列表
-    const fetchResources = async () => {
-        setLoading(true);
-        try {
-            const response = await apiClient.get(`/resource/list?page=${currentPage}&size=${pageSize}&type=${resourceType}`);
-            if (response.code === 0 && response.data) {
-                const paginatedData = response.data as PaginatedResponse<Resource>;
-                setResources(paginatedData.list);
-                setTotalPages(paginatedData.totalPage);
-            } else {
-                toast.error('获取资源列表失败', {
-                    description: response.msg || '服务器错误',
-                });
-            }
-        } catch (error) {
-            console.error('获取资源列表错误:', error);
-            toast.error('获取资源列表失败', {
-                description: '服务器错误，请稍后再试',
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-    
-    // 初始化
-    useEffect(() => {
-        fetchResources();
-    }, [currentPage, pageSize, resourceType]);
+    // 使用封装好的 useApi 钩子获取资源列表
+    const { data, error, isLoading, mutate } = useApi<PaginatedResponse<Resource>>(
+        `/resource/list?page=${currentPage}&size=${pageSize}&type=${resourceType}`
+    );
     
     // 处理页码变化
     const handlePageChange = (page: number) => {
@@ -109,7 +82,7 @@ export default function ResourceList({ onAddArticle, onAddVideo }: ResourceListP
             
             if (response.code === 0) {
                 toast.success('资源删除成功');
-                fetchResources();
+                mutate(); // 使用 SWR 的 mutate 函数重新获取数据
                 setDeleteDialogOpen(false);
                 setResourceToDelete(null);
             } else {
@@ -132,6 +105,11 @@ export default function ResourceList({ onAddArticle, onAddVideo }: ResourceListP
         const remainingSeconds = seconds % 60;
         return `${minutes}分${remainingSeconds}秒`;
     };
+    
+    // 获取资源列表和总页数
+    const resources = data?.list || [];
+    const totalPages = data?.totalPage || 1;
+    const totalCount = data?.total || 0;
     
     return (
         <Card>
@@ -173,9 +151,14 @@ export default function ResourceList({ onAddArticle, onAddVideo }: ResourceListP
                 <CardDescription>管理您上传的所有资源</CardDescription>
             </CardHeader>
             <CardContent>
-                {loading ? (
+                {isLoading ? (
                     <div className="flex justify-center p-12">
                         <p className="text-lg">加载中...</p>
+                    </div>
+                ) : error ? (
+                    <div className="text-center p-12">
+                        <p className="text-lg text-red-500 mb-4">加载失败，请重试</p>
+                        <Button onClick={() => mutate()}>重新加载</Button>
                     </div>
                 ) : resources.length === 0 ? (
                     <div className="text-center p-12">
@@ -226,7 +209,7 @@ export default function ResourceList({ onAddArticle, onAddVideo }: ResourceListP
                 {/* 分页控件 */}
                 {resources.length > 0 && (
                     <div className="mt-6 flex justify-between items-center w-full">
-                        <div className="text-sm text-muted-foreground whitespace-nowrap">共 {resources.length} 条记录</div>
+                        <div className="text-sm text-muted-foreground whitespace-nowrap">共 {totalCount} 条记录</div>
                         <Pagination>
                             <PaginationContent>
                                 <PaginationItem>
