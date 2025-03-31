@@ -264,6 +264,34 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
                         <Heading3 className="h-4 w-4" />
                     </Toggle>
 
+                    {/* 添加 H4、H5、H6 按钮 */}
+                    <Toggle
+                        pressed={editor.isActive('heading', { level: 4 })}
+                        onPressedChange={() => editor.chain().focus().toggleHeading({ level: 4 }).run()}
+                        aria-label="标题4"
+                        className="data-[state=on]:bg-gray-200"
+                    >
+                        <span className="text-xs font-bold">H4</span>
+                    </Toggle>
+
+                    <Toggle
+                        pressed={editor.isActive('heading', { level: 5 })}
+                        onPressedChange={() => editor.chain().focus().toggleHeading({ level: 5 }).run()}
+                        aria-label="标题5"
+                        className="data-[state=on]:bg-gray-200"
+                    >
+                        <span className="text-xs font-bold">H5</span>
+                    </Toggle>
+
+                    <Toggle
+                        pressed={editor.isActive('heading', { level: 6 })}
+                        onPressedChange={() => editor.chain().focus().toggleHeading({ level: 6 }).run()}
+                        aria-label="标题6"
+                        className="data-[state=on]:bg-gray-200"
+                    >
+                        <span className="text-xs font-bold">H6</span>
+                    </Toggle>
+
                     <div className="h-6 w-px bg-gray-300 mx-1"></div>
 
                     <Toggle
@@ -444,6 +472,25 @@ export function TipTapEditor({ onChange, initialContent = '' }: TipTapEditorProp
         extensions: [
             StarterKit.configure({
                 codeBlock: false, // 禁用默认的代码块，使用自定义的
+                // 确保列表和引用功能正常工作
+                bulletList: {
+                    HTMLAttributes: {
+                        class: 'list-disc pl-6',
+                    },
+                },
+                orderedList: {
+                    HTMLAttributes: {
+                        class: 'list-decimal pl-6',
+                    },
+                },
+                blockquote: {
+                    HTMLAttributes: {
+                        class: 'border-l-4 border-gray-300 pl-4 py-1 my-2',
+                    },
+                },
+                heading: {
+                    levels: [1, 2, 3, 4, 5, 6], // 支持所有标题级别
+                },
             }),
             Image,
             // 修复 Link 扩展配置
@@ -602,50 +649,89 @@ export function TipTapEditor({ onChange, initialContent = '' }: TipTapEditorProp
 
             <style jsx global>{`
                 /* 自定义标题样式 */
-                .editor-content h1 {
+                .editor-content h1, .prose h1 {
                     font-size: 2em;
                     font-weight: bold;
                     margin-top: 0.67em;
                     margin-bottom: 0.67em;
                 }
-                .editor-content h2 {
+                .editor-content h2, .prose h2 {
                     font-size: 1.5em;
                     font-weight: bold;
                     margin-top: 0.83em;
                     margin-bottom: 0.83em;
                 }
-                .editor-content h3 {
+                .editor-content h3, .prose h3 {
                     font-size: 1.17em;
                     font-weight: bold;
                     margin-top: 1em;
                     margin-bottom: 1em;
                 }
+                .editor-content h4, .prose h4 {
+                    font-size: 1em;
+                    font-weight: bold;
+                    margin-top: 1.33em;
+                    margin-bottom: 1.33em;
+                }
+                .editor-content h5, .prose h5 {
+                    font-size: 0.83em;
+                    font-weight: bold;
+                    margin-top: 1.67em;
+                    margin-bottom: 1.67em;
+                }
+                .editor-content h6, .prose h6 {
+                    font-size: 0.67em;
+                    font-weight: bold;
+                    margin-top: 2.33em;
+                    margin-bottom: 2.33em;
+                }
+                
+                /* 列表样式 */
+                .editor-content ul, .prose ul {
+                    list-style-type: disc;
+                    padding-left: 1.5em;
+                    margin: 1em 0;
+                }
+                .editor-content ol, .prose ol {
+                    list-style-type: decimal;
+                    padding-left: 1.5em;
+                    margin: 1em 0;
+                }
+                
+                /* 引用样式 */
+                .editor-content blockquote, .prose blockquote {
+                    border-left: 4px solid #e5e7eb;
+                    padding-left: 1em;
+                    margin: 1em 0;
+                    color: #6b7280;
+                }
+                
                 /* 表格样式 */
-                .editor-content table {
+                .editor-content table, .prose table {
                     border-collapse: collapse;
                     width: 100%;
                 }
-                .editor-content th, .editor-content td {
+                .editor-content th, .editor-content td, .prose th, .prose td {
                     border: 1px solid #e5e7eb;
                     padding: 8px;
                     min-width: 100px;
                 }
-                .editor-content th {
+                .editor-content th, .prose th {
                     background-color: #f9fafb;
                     font-weight: bold;
                 }
                 /* 确保表格单元格始终可见 */
-                .editor-content td p, .editor-content th p {
+                .editor-content td p, .editor-content th p, .prose td p, .prose th p {
                     min-height: 1em;
                 }
                 /* 代码块样式 */
-                .editor-content pre {
+                .editor-content pre, .prose pre {
                     background-color: #f3f4f6;
                     padding: 1em;
                     border-radius: 0.375rem;
                     overflow-x: auto;
                 }
-                .editor-content code {
+                .editor-content code, .prose code {
                     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
                     font-size: 0.875em;
                 }
