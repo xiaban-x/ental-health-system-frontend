@@ -36,9 +36,10 @@ interface ResourceListProps {
     onAddArticle: () => void;
     onAddVideo: () => void;
     onEditResource: (resource: Resource) => void; // 添加编辑资源的回调函数
+    onPreview: (resourceId: number) => void; // 添加预览回调
 }
 
-export default function ResourceList({ onAddArticle, onAddVideo, onEditResource }: ResourceListProps) {
+export default function ResourceList({ onAddArticle, onAddVideo, onEditResource, onPreview }: ResourceListProps) {
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
     const [resourceType, setResourceType] = useState<'all' | 'article' | 'video' | 'tool'>('all');
@@ -185,6 +186,13 @@ export default function ResourceList({ onAddArticle, onAddVideo, onEditResource 
                                             </CardDescription>
                                         </div>
                                         <div className="flex space-x-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => onPreview(resource.id)}
+                                            >
+                                                预览
+                                            </Button>
                                             <Button
                                                 variant="outline"
                                                 size="sm"
