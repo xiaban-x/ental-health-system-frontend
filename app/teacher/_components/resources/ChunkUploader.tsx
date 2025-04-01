@@ -108,9 +108,8 @@ export default function ChunkUploader({ onFileSelect, onUploadComplete, onUpload
 
         try {
             // 先检查分片是否存在
-            const checkResponse = await apiClient.post<{ exist: boolean }>('/minio/chunk/check', formData);
-            const chunkExists = checkResponse.code === 0 && checkResponse.data && checkResponse.data.exist;
-
+            const checkResponse = await apiClient.post<{ exists: boolean }>('/minio/chunk/check', formData);
+            const chunkExists = checkResponse.code === 0 && checkResponse.data && checkResponse.data.exists;
             if (chunkExists) {
                 console.log(`分片 ${chunkNumber} 已存在，跳过上传`);
                 // 更新本地ref
