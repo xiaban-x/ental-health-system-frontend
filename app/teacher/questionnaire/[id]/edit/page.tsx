@@ -8,6 +8,15 @@ import { toast } from 'sonner';
 import { QuestionData } from '@/app/teacher/_components/question-form/types';
 import QuestionnaireInfoCard from '@/app/teacher/_components/questionnaire/QuestionnaireInfoCard';
 import QuestionList from '@/app/teacher/_components/questionnaire/QuestionList';
+// 导入对话框相关组件
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/app/_components/ui/dialog";
 
 interface Questionnaire {
     id: number;
@@ -37,6 +46,9 @@ export default function EditQuestionnaire() {
     const params = useParams();
     const questionnaireId = Number(params.id);
     const [loading, setLoading] = useState(false);
+    const [publishLoading, setPublishLoading] = useState(false);
+    // 添加对话框状态
+    const [publishDialogOpen, setPublishDialogOpen] = useState(false);
 
     // 使用SWR获取问卷详情
     const {
@@ -306,33 +318,114 @@ export default function EditQuestionnaire() {
         );
     }
 
+    // 修改发布问卷的函数，移除确认对话框逻辑
+    const handlePublishQuestionnaire = async () => {
+        // 检查问卷是否有问题
+        if (!questionsData || questionsData.length === 0) {
+            toast.error('发布失败', {
+                description: '问卷必须至少包含一个问题',
+                position: 'top-center',
+            });
+            return;
+        }
+
+        setPublishLoading(true);
+        try {
+            const response = await apiClient.post(`/assessment/${questionnaireId}/publish`);
+
+            if (response.code === 0) {
+                toast.success('发布成功', {
+                    description: '问卷已发布，学生可以开始填写',
+                    position: 'top-center',
+                });
+                
+                // 更新本地问卷状态
+                if (questionnaire) {
+                    const updatedQuestionnaire = { ...questionnaire, status: 1 };
+                    mutateQuestionnaire(updatedQuestionnaire, false);
+                }
+                
+                // 关闭对话框
+                setPublishDialogOpen(false);
+                
+                // 跳转到问卷列表页面
+                router.push('/teacher/questionnaire');
+            } else {
+                toast.error('发布失败', {
+                    description: response.msg || '无法发布问卷',
+                    position: 'top-center',
+                });
+            }
+        } catch (error) {
+            console.error('发布问卷错误:', error);
+            toast.error('发布失败', {
+                description: '服务器错误，请稍后再试',
+                position: 'top-center',
+            });
+        } finally {
+            setPublishLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-muted p-6">
             <div className="max-w-7xl mx-auto space-y-6">
                 <div className="flex justify-between items-center">
                     <div>
                         <h1 className="text-3xl font-bold">编辑问卷</h1>
-                        <p className="text-muted-foreground">{questionnaire.title}</p>
+                        <p className="text-muted-foreground">{questionnaire?.title}</p>
                     </div>
                     <div className="space-x-4">
                         <Button variant="outline" onClick={() => router.push('/teacher/questionnaire')}>
                             返回问卷列表
                         </Button>
-                        {questionnaire.status === 0 && (
-                            <Button onClick={() => router.push(`/teacher/questionnaire/${questionnaireId}/preview`)}>
-                                预览问卷
-                            </Button>
+                        {questionnaire?.status === 0 && (
+                            <>
+                                <Button onClick={() => router.push(`/teacher/questionnaire/${questionnaireId}/preview`)}>
+                                    预览问卷
+                                </Button>
+                                <Button 
+                                    variant="default" 
+                                    onClick={() => setPublishDialogOpen(true)}
+                                    disabled={questionsData?.length === 0}
+                                >
+                                    发布问卷
+                                </Button>
+                            </>
                         )}
                     </div>
                 </div>
+
+                {/* 发布确认对话框 */}
+                <Dialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>确认发布问卷</DialogTitle>
+                            <DialogDescription>
+                                发布后将不能再编辑问题。学生将可以开始填写此问卷。
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setPublishDialogOpen(false)}>
+                                取消
+                            </Button>
+                            <Button 
+                                onClick={handlePublishQuestionnaire}
+                                disabled={publishLoading}
+                            >
+                                {publishLoading ? '发布中...' : '确认发布'}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
                 <QuestionnaireInfoCard questionnaire={questionnaire} />
 
                 <QuestionList
                     questions={questionsData}
                     questionnaireId={questionnaireId}
-                    questionnaireName={questionnaire.title}
-                    isEditable={questionnaire.status === 0}
+                    questionnaireName={questionnaire?.title}
+                    isEditable={questionnaire?.status === 0}
                     onAddQuestion={handleAddQuestion}
                     onDeleteQuestion={handleDeleteQuestion}
                     onUpdateQuestion={handleUpdateQuestion}
