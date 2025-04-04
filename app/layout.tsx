@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from './_components/ui/sonner';
+import AuthGuard from './_components/auth/AuthGuard';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -18,7 +19,9 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body className={inter.className}>
-        {children}
+        <AuthGuard>
+          {children}
+        </AuthGuard>
         <Toaster richColors />
       </body>
     </html>
