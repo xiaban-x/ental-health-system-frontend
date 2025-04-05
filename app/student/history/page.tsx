@@ -77,15 +77,6 @@ export default function StudentHistory() {
     const assessmentRecords = assessmentData?.list || [];
 
     useEffect(() => {
-        // 检查用户是否已登录
-        const token = localStorage.getItem('token');
-        const userType = localStorage.getItem('role');
-
-        if (!token || userType !== 'student') {
-            router.push('/auth/login');
-            return;
-        }
-
         // 更新评估历史总页数
         if (assessmentData) {
             setTotalPages(assessmentData.totalPage || 1);
@@ -95,7 +86,7 @@ export default function StudentHistory() {
         if (appointmentData) {
             setAppointmentTotalPages(appointmentData.totalPage || 1);
         }
-    }, [router, assessmentData, appointmentData]);
+    }, [assessmentData, appointmentData]);
 
     // 处理评估历史加载错误
     useEffect(() => {

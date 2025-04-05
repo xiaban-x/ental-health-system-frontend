@@ -38,17 +38,8 @@ export default function TeacherQuestionnaire() {
     });
 
     useEffect(() => {
-        // 检查用户是否已登录
-        const token = localStorage.getItem('token');
-        const role = localStorage.getItem('role');
-
-        if (!token || role !== 'teacher') {
-            router.push('/auth/login');
-            return;
-        }
-
         fetchQuestionnaires();
-    }, [router]);
+    }, []);
 
     // 添加分页状态
     const [currentPage, setCurrentPage] = useState(1);

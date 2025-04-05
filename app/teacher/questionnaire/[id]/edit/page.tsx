@@ -69,17 +69,6 @@ export default function EditQuestionnaire() {
         }
     });
 
-    useEffect(() => {
-        // 检查用户是否已登录
-        const token = localStorage.getItem('token');
-        const role = localStorage.getItem('role');
-
-        if (!token || role !== 'teacher') {
-            router.push('/auth/login');
-            return;
-        }
-    }, [router]);
-
     // 处理错误
     useEffect(() => {
         if (questionnaireError) {
@@ -338,16 +327,16 @@ export default function EditQuestionnaire() {
                     description: '问卷已发布，学生可以开始填写',
                     position: 'top-center',
                 });
-                
+
                 // 更新本地问卷状态
                 if (questionnaire) {
                     const updatedQuestionnaire = { ...questionnaire, status: 1 };
                     mutateQuestionnaire(updatedQuestionnaire, false);
                 }
-                
+
                 // 关闭对话框
                 setPublishDialogOpen(false);
-                
+
                 // 跳转到问卷列表页面
                 router.push('/teacher/questionnaire');
             } else {
@@ -384,8 +373,8 @@ export default function EditQuestionnaire() {
                                 <Button onClick={() => router.push(`/teacher/questionnaire/${questionnaireId}/preview`)}>
                                     预览问卷
                                 </Button>
-                                <Button 
-                                    variant="default" 
+                                <Button
+                                    variant="default"
                                     onClick={() => setPublishDialogOpen(true)}
                                     disabled={questionsData?.length === 0}
                                 >
@@ -409,7 +398,7 @@ export default function EditQuestionnaire() {
                             <Button variant="outline" onClick={() => setPublishDialogOpen(false)}>
                                 取消
                             </Button>
-                            <Button 
+                            <Button
                                 onClick={handlePublishQuestionnaire}
                                 disabled={publishLoading}
                             >

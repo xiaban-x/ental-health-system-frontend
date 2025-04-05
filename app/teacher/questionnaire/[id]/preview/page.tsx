@@ -31,16 +31,8 @@ export default function PreviewQuestionnaire() {
     // 添加对话框状态
     const [publishDialogOpen, setPublishDialogOpen] = useState(false);
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        const role = localStorage.getItem('role');
-
-        if (!token || role !== 'teacher') {
-            router.push('/auth/login');
-            return;
-        }
-
         fetchQuestionnaireDetails();
-    }, [router, questionnaireId]);
+    }, []);
 
     const fetchQuestionnaireDetails = async () => {
         setLoading(true);

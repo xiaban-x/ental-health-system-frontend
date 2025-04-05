@@ -33,17 +33,8 @@ export default function TeacherAppointments() {
     const [reviewNotes, setReviewNotes] = useState('');
 
     useEffect(() => {
-        // 检查用户是否已登录
-        const token = localStorage.getItem('token');
-        const role = localStorage.getItem('role');
-
-        if (!token || role !== 'teacher') {
-            router.push('/auth/login');
-            return;
-        }
-
         fetchAppointments();
-    }, [router]);
+    }, []);
 
     const fetchAppointments = async () => {
         setLoading(true);

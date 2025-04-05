@@ -52,13 +52,6 @@ export default function TeacherDashboard() {
     // 修改API路径
     const { data, error, isLoading } = useApi<TeacherInfo>('/users/profile');
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        const role = localStorage.getItem('role');
-        if (!token || role !== 'teacher') {
-            router.push('/auth/login');
-            return;
-        }
-
         // 修改数据访问路径
         if (data) {
             setTeacherInfo(data);

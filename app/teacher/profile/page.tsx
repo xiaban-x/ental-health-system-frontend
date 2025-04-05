@@ -86,17 +86,8 @@ export default function TeacherProfile() {
     // 修改API路径
     const { data, error, mutate } = useApi<TeacherInfo>('/users/profile');
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        const role = localStorage.getItem('role');
-
-        if (!token || role !== 'teacher') {
-            router.push('/auth/login');
-            return;
-        }
-
         // 更新数据访问路径
         if (data) {
-            console.log("data ===>", data)
             setFormData({
                 username: data.user.username || '',
                 name: data.user.name || '',
@@ -112,7 +103,7 @@ export default function TeacherProfile() {
                 officeLocation: data.roleInfo.officeLocation || '',
             });
         }
-    }, [data, router]);
+    }, [data]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -185,6 +176,7 @@ export default function TeacherProfile() {
         }
         setIsEditing(false);
     };
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));

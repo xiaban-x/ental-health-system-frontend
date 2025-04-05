@@ -58,17 +58,8 @@ export default function TeacherFeedback() {
     const [filterStatus, setFilterStatus] = useState<string>('all');
 
     useEffect(() => {
-        // 检查用户是否已登录
-        const token = localStorage.getItem('token');
-        const role = localStorage.getItem('role');
-
-        if (!token || role !== 'teacher') {
-            router.push('/auth/login');
-            return;
-        }
-
         fetchFeedbacks();
-    }, [router, currentPage, pageSize, filterType, filterStatus]);
+    }, [currentPage, pageSize, filterType, filterStatus]);
 
     const fetchFeedbacks = async () => {
         setLoading(true);

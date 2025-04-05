@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/_components/ui/card';
 import { Button } from '@/app/_components/ui/button';
@@ -65,17 +65,6 @@ export default function StudentResources() {
   const { data, error, isLoading, mutate } = useApi<PaginatedResponse<Resource>>(
     `/resource/list?page=${currentPage}&size=${pageSize}&type=${activeTab === 'all' ? '' : activeTab}`
   );
-
-  useEffect(() => {
-    // 检查用户是否已登录
-    const token = localStorage.getItem('token');
-    const role = localStorage.getItem('role');
-
-    if (!token || role !== 'student') {
-      router.push('/auth/login');
-      return;
-    }
-  }, [router]);
 
   // 处理页码变化
   const handlePageChange = (page: number) => {
@@ -144,8 +133,8 @@ export default function StudentResources() {
   const renderArticleContent = (content?: string | null) => {
     if (!content) return <p className="text-gray-500">无内容</p>;
     return (
-      <div 
-        className="prose max-w-none" 
+      <div
+        className="prose max-w-none"
         dangerouslySetInnerHTML={{ __html: content }}
       />
     );
@@ -177,8 +166,8 @@ export default function StudentResources() {
   // 渲染视频卡片（B站风格）
   const renderVideoCard = (resource: Resource) => {
     return (
-      <div 
-        key={resource.id} 
+      <div
+        key={resource.id}
         className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
         onClick={() => handlePreview(resource.id)}
       >
@@ -186,9 +175,9 @@ export default function StudentResources() {
           {/* 封面图片 */}
           <div className="aspect-video bg-gray-200 overflow-hidden">
             {resource.coverImage ? (
-              <img 
-                src={resource.coverImage} 
-                alt={resource.title} 
+              <img
+                src={resource.coverImage}
+                alt={resource.title}
                 className="w-full h-full object-cover transition-transform hover:scale-105"
               />
             ) : (
@@ -197,7 +186,7 @@ export default function StudentResources() {
               </div>
             )}
           </div>
-          
+
           {/* 视频时长 */}
           {resource.duration && (
             <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-1 py-0.5 rounded">
@@ -205,11 +194,11 @@ export default function StudentResources() {
             </div>
           )}
         </div>
-        
+
         <div className="p-3">
           {/* 标题 */}
           <h3 className="font-medium text-sm line-clamp-2 h-10">{resource.title}</h3>
-          
+
           {/* 视频信息 */}
           <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
             <div className="flex items-center">
@@ -229,8 +218,8 @@ export default function StudentResources() {
   // 渲染文章卡片（掘金风格）
   const renderArticleCard = (resource: Resource) => {
     return (
-      <div 
-        key={resource.id} 
+      <div
+        key={resource.id}
         className="bg-white rounded-lg p-4 mb-4 border border-gray-100 hover:shadow-md transition-shadow cursor-pointer"
         onClick={() => handlePreview(resource.id)}
       >
@@ -238,7 +227,7 @@ export default function StudentResources() {
           <div className="flex-1 pr-4">
             <h3 className="font-medium text-lg mb-2">{resource.title}</h3>
             <p className="text-gray-500 text-sm line-clamp-2 mb-3">{resource.description}</p>
-            
+
             <div className="flex items-center text-xs text-gray-400 space-x-3">
               <div className="flex items-center">
                 <User className="h-3 w-3 mr-1" />
@@ -258,12 +247,12 @@ export default function StudentResources() {
               </div>
             </div>
           </div>
-          
+
           {resource.coverImage && (
             <div className="w-32 h-20 flex-shrink-0">
-              <img 
-                src={resource.coverImage} 
-                alt={resource.title} 
+              <img
+                src={resource.coverImage}
+                alt={resource.title}
                 className="w-full h-full object-cover rounded"
               />
             </div>
@@ -313,32 +302,32 @@ export default function StudentResources() {
                 </div>
               </CardDescription>
             </CardHeader>
-            
+
             <CardContent className="space-y-6">
               {/* 封面图片 */}
               {resource.coverImage && (
                 <div className="w-full">
-                  <img 
-                    src={resource.coverImage} 
-                    alt={resource.title} 
+                  <img
+                    src={resource.coverImage}
+                    alt={resource.title}
                     className="w-full max-h-[300px] object-cover rounded-md"
                   />
                 </div>
               )}
-              
+
               {/* 描述 */}
               <div className="bg-gray-50 p-4 rounded-md">
                 <h3 className="text-lg font-medium mb-2">简介</h3>
                 <p className="text-gray-700">{resource.description}</p>
               </div>
-              
+
               {/* 内容 - 根据资源类型显示不同内容 */}
               <div>
                 <h3 className="text-lg font-medium mb-4">
-                  {resource.type === 'article' ? '文章内容' : 
-                   resource.type === 'video' ? '视频内容' : '资源内容'}
+                  {resource.type === 'article' ? '文章内容' :
+                    resource.type === 'video' ? '视频内容' : '资源内容'}
                 </h3>
-                
+
                 {resource.type === 'article' ? (
                   renderArticleContent(resource.content)
                 ) : resource.type === 'video' ? (
@@ -348,7 +337,7 @@ export default function StudentResources() {
                 )}
               </div>
             </CardContent>
-            
+
             <CardFooter className="flex justify-between border-t pt-4">
               <div className="text-sm text-gray-500">
                 最后更新: {formatDate(resource.updatedAt)}
@@ -443,7 +432,7 @@ export default function StudentResources() {
                           </div>
                         </div>
                       )}
-                      
+
                       {/* 文章资源（列表式） */}
                       {data.list.filter(r => r.type === 'article').length > 0 && (
                         <div className="space-y-4">
@@ -523,12 +512,12 @@ export default function StudentResources() {
                 <Pagination>
                   <PaginationContent>
                     <PaginationItem>
-                      <PaginationPrevious 
+                      <PaginationPrevious
                         onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                         className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                       />
                     </PaginationItem>
-                    
+
                     {Array.from({ length: data.totalPage }, (_, i) => i + 1).map((page) => (
                       <PaginationItem key={page}>
                         <PaginationLink
@@ -539,9 +528,9 @@ export default function StudentResources() {
                         </PaginationLink>
                       </PaginationItem>
                     ))}
-                    
+
                     <PaginationItem>
-                      <PaginationNext 
+                      <PaginationNext
                         onClick={() => handlePageChange(Math.min(data.totalPage, currentPage + 1))}
                         className={currentPage === data.totalPage ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                       />

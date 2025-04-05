@@ -35,17 +35,6 @@ export default function TeacherResources() {
     const [resourceToEdit, setResourceToEdit] = useState<Resource | null>(null);
     const [resourceToPreview, setResourceToPreview] = useState<number | null>(null); // 添加预览状态
 
-    useEffect(() => {
-        // 检查用户是否已登录
-        const token = localStorage.getItem('token');
-        const role = localStorage.getItem('role');
-
-        if (!token || role !== 'teacher') {
-            router.push('/auth/login');
-            return;
-        }
-    }, [router]);
-
     // 处理资源编辑
     const handleEditResource = (resource: Resource) => {
         setResourceToEdit(resource);
@@ -54,12 +43,6 @@ export default function TeacherResources() {
         } else if (resource.type === 'video') {
             setActiveTab('edit-video');
         }
-    };
-
-    // 返回列表
-    const handleReturnToList = () => {
-        setActiveTab('list');
-        setResourceToEdit(null);
     };
 
     // 处理文章编辑成功

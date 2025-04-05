@@ -70,15 +70,6 @@ export default function StudentProfile() {
     const { data, error, isLoading, mutate } = useApi<StudentInfo>('/users/profile');
 
     useEffect(() => {
-        // 检查用户是否已登录
-        const token = localStorage.getItem('token');
-        const role = localStorage.getItem('role');
-
-        if (!token || role !== 'student') { // 修改判断条件
-            router.push('/auth/login');
-            return;
-        }
-
         // 只在 data 存在且有值时更新表单
         if (data && data.user) {
             setFormData({
@@ -93,7 +84,7 @@ export default function StudentProfile() {
                 grade: data.roleInfo.grade || '',
             });
         }
-    }, [data, router]);
+    }, [data]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;

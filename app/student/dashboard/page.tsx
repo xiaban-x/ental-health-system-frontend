@@ -51,19 +51,10 @@ export default function StudentDashboard() {
     // 使用SWR获取学生信息
     const { data, error, isLoading } = useApi<StudentInfo>('/users/profile');
     useEffect(() => {
-        // 检查用户是否已登录
-        const token = localStorage.getItem('token');
-        const role = localStorage.getItem('role');
-
-        if (!token || role !== 'student') {
-            router.push('/auth/login');
-            return;
-        }
-        console.log("data ===>", data)
         if (data) {
             setStudentInfo(data);
         }
-    }, [data, router]);
+    }, [data]);
 
     useEffect(() => {
         if (error) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/_components/ui/card';
 import { Button } from '@/app/_components/ui/button';
@@ -82,19 +82,6 @@ export default function StudentAssessment() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [assessmentCompleted, setAssessmentCompleted] = useState(false);
     const [result, setResult] = useState<AssessmentResult | null>(null);
-
-    // 使用SWR获取评估列表
-    // const { data: assessments, error, isLoading } = useApi<Assessment[]>('/assessment/list');
-
-    useEffect(() => {
-        // 检查用户是否已登录
-        const token = localStorage.getItem('token');
-        const role = localStorage.getItem('role');
-
-        if (!token || role !== 'student') {
-            router.push('/auth/login');
-        }
-    }, [router]);
 
     const startAssessment = async (assessment: Assessment) => {
         setSelectedAssessment(assessment);

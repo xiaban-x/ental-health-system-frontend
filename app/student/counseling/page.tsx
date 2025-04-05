@@ -77,19 +77,11 @@ export default function StudentCounseling() {
     const [timeSlotsLoading, setTimeSlotsLoading] = useState(false);
 
     useEffect(() => {
-        // 检查用户是否已登录
-        const token = localStorage.getItem('token');
-        const role = localStorage.getItem('role');
-
-        if (!token || role !== 'student') {
-            router.push('/auth/login');
-        }
-
         // 更新总页数
         if (appointmentData) {
             setTotalPages(appointmentData.totalPage || 1);
         }
-    }, [router, appointmentData]);
+    }, [appointmentData]);
 
     const fetchTimeSlots = async (counselorId: number) => {
         setTimeSlotsLoading(true);

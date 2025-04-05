@@ -35,20 +35,11 @@ export default function StudentFeedback() {
     const [activeTab, setActiveTab] = useState('submit');
 
     useEffect(() => {
-        // 检查用户是否已登录
-        const token = localStorage.getItem('token');
-        const role = localStorage.getItem('role');
-
-        if (!token || role !== 'student') {
-            router.push('/auth/login');
-            return;
-        }
-
         // 如果当前标签是"history"，则加载反馈历史
         if (activeTab === 'history') {
             fetchFeedbacks();
         }
-    }, [router, activeTab]);
+    }, [activeTab]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -215,7 +206,7 @@ export default function StudentFeedback() {
                         <TabsTrigger value="submit">提交反馈</TabsTrigger>
                         <TabsTrigger value="history">我的反馈</TabsTrigger>
                     </TabsList>
-                    
+
                     <TabsContent value="submit">
                         <Card>
                             <CardHeader>
@@ -284,7 +275,7 @@ export default function StudentFeedback() {
                             </form>
                         </Card>
                     </TabsContent>
-                    
+
                     <TabsContent value="history">
                         <Card>
                             <CardHeader>
@@ -299,8 +290,8 @@ export default function StudentFeedback() {
                                 ) : feedbacks.length === 0 ? (
                                     <div className="text-center py-8">
                                         <p className="text-muted-foreground">您还没有提交过反馈</p>
-                                        <Button 
-                                            variant="outline" 
+                                        <Button
+                                            variant="outline"
                                             className="mt-4"
                                             onClick={() => setActiveTab('submit')}
                                         >
@@ -331,12 +322,12 @@ export default function StudentFeedback() {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    
+
                                                     <div className="bg-gray-50 p-3 rounded-md mb-3">
                                                         <p className="text-sm font-medium mb-1">反馈内容:</p>
                                                         <p className="text-sm whitespace-pre-line">{feedback.content}</p>
                                                     </div>
-                                                    
+
                                                     {feedback.reply && (
                                                         <div className="bg-blue-50 p-3 rounded-md">
                                                             <p className="text-sm font-medium mb-1">官方回复:</p>

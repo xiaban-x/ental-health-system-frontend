@@ -45,17 +45,6 @@ export default function TeacherCounselingTime() {
         `/counselor/my-time-slots?page=${currentPage}&size=${pageSize}`
     );
 
-    useEffect(() => {
-        // 检查用户是否已登录
-        const token = localStorage.getItem('token');
-        const role = localStorage.getItem('role');
-
-        if (!token || role !== 'teacher') {
-            router.push('/auth/login');
-            return;
-        }
-    }, [router]);
-
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
