@@ -41,7 +41,6 @@ export default function QuestionForm({ onSubmit, onCancel, initialData, paperId,
 
     // 初始化表单数据
     useEffect(() => {
-        console.log("initialData ===>", initialData);
         if (initialData) {
             // 直接设置表单数据，包括答案
             setFormData({
